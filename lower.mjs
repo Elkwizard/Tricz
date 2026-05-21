@@ -54,7 +54,6 @@ const lowerOperators = root => {
 };
 
 const lowerLoops = root => {
-
     root = root.transform(AST.For, node => {
         const loop = make.While(
             node.condition ?? make.Bool("true").from(node),
@@ -74,9 +73,53 @@ const lowerLoops = root => {
     return root;
 };
 
+const lowerArrayInitializers = root => {
+    root.forEach(AST.Array, node => {
+        if (!node.elements.length)
+            node.error(`Cannot specify an array literal without elements`);
+    });
+
+    root.forEach(AST.Variable, node => {
+        if (!node.value) return node;
+
+        const typeLayers = [];
+        let currentType = node.type;
+        while (currentType instanceof AST.ArrayType) {
+            typeLayers.push(currentType);
+            currentType = currentType.element;
+        }
+
+        if (!typeLayers.length) return;
+
+        const initLayers = [];
+        let currentValue = node.value;
+        while (currentValue instanceof AST.Array) {
+            initLayers.push(currentValue);
+            currentValue = currentValue.elements[0];
+        };
+
+        for (let i = 0; i < typeLayers.length; i++) {
+            const type = typeLayers[i];
+            if (type.length) continue;
+
+            if (i >= initLayers.length)
+                node.value.error(`An array initializer must have enough dimensions to fully specify implied lengths`);
+
+            const { length } = initLayers[i].elements;
+            type.length = make.Int(String(length));
+        }
+    });
+
+    root.forEach(AST.ArrayType, node => {
+        if (!node.length)
+            node.error(`Cannot specify un-lengthed array type without an initializer`);
+    });
+};
+
 export default function lower(root) {
     root = lowerDeclarations(root);
     root = lowerOperators(root);
     root = lowerLoops(root);
+    lowerArrayInitializers(root);
     return root;
 }

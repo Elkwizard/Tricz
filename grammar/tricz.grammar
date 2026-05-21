@@ -29,7 +29,7 @@ identifier = /[\w\d_]+/
 	ArrayType = element:Type length:Expression?
 
 	TypeStep = FunctionTypeSuffix | ArrayTypeSuffix
-	TypeTerm = base:BaseType step:TypeStep | BaseType
+	TypeTerm = base:TypeTerm step:TypeStep | BaseType
 
 	Type = TypeTerm
 @end
@@ -45,7 +45,8 @@ identifier = /[\w\d_]+/
 	Literal = Int | Fixed | Bool
 
 	Nested = "(" replace:Expression ")"
-	BaseExpression = Nested | Literal | Reference
+    Array = "[" elements:Expression[","] "]"
+	BaseExpression = Nested | Literal | Array | Reference
 
 	CallSuffix = "(" args:Expression[","] ")"
 	SubscriptSuffix = "[" index:Expression "]"
@@ -63,7 +64,7 @@ identifier = /[\w\d_]+/
         Not = $Unary
     @end
 
-	Term = base:BaseExpression step:Step | BaseExpression
+	Term = base:Term step:Step | BaseExpression
 
 	Expression = operators Term {
 		prefix Prefix ("-" | "@" | "&" | "!" | "++" | "--")

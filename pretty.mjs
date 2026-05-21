@@ -55,6 +55,9 @@ class PrettyPrinter extends Visitor {
     BinaryOperator({ left, op, right }) {
         this.tag`(${left} ${styleText("magenta", op)} ${right})`;
     }
+    Array({ elements }) {
+        this.tag`[${[elements, ", "]}]`;
+    }
     // types
     TypeReference({ name }) {
         this.print(name);
@@ -64,6 +67,9 @@ class PrettyPrinter extends Visitor {
     }
     LiteralType({ name }) {
         this.print(styleText("cyan", name));
+    }
+    ArrayType({ element, length }) {
+        this.tag`${element}[${length ?? ""}]`;
     }
     // statements
     ExpressionStatement({ value }) {
@@ -78,7 +84,16 @@ class PrettyPrinter extends Visitor {
         this.println("}");
     }
     For({ init, condition, next, body }) {
-        this.tag`${styleText("magenta", "for")} (${init ?? ";"} ${condition}; ${next}) ${body}`;
+        this.tag`${styleText("magenta", "for")} (\n`;
+        this.indent();
+        if (init) this.visit(init);
+        else this.println();
+        if (condition) this.tag`${condition};\n`;
+        else this.println();
+        if (next) this.tag`${next}\n`;
+        else this.println();
+        this.unindent();
+        this.tag`) ${body}`;
     }
     While({ condition, body, continuing }) {
         this.tag`${styleText("magenta", "while")} (${condition}) ${body}`;
@@ -86,7 +101,7 @@ class PrettyPrinter extends Visitor {
     }
     If({ condition, ifTrue, ifFalse }) {
         this.tag`${styleText("magenta", "if")} (${condition}) ${ifTrue}`;
-        if (ifFalse) this.tag` ${styleText("magenta", "else")} ${ifFalse}`;
+        if (ifFalse) this.tag`${styleText("magenta", "else")} ${ifFalse}`;
     }
     Return({ value }) {
         this.print(styleText("magenta", "return"));

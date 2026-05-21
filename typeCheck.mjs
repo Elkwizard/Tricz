@@ -50,6 +50,24 @@ class TypeChecker extends Visitor {
     Bool() {
         return PrimitiveType.BOOL;
     }
+    Array(node) {
+        const { elements } = node;
+
+        const elementType = elements
+            .map(element => this.visit(element))
+            .reduce((a, b) => a ? Type.common(a, b) : null);
+
+        if (!elementType)
+            node.error(`Cannot deduce common element type for array. Element types were [${elements.map(el => this.visit(el)).join(", ")}]`);
+
+        for (let i = 0; i < elements.length; i++)
+            this.assertConvertible(
+                elements[i], elementType,
+                (src, dst) => `Cannot have array element of type '${src}' in array with elements of type '${dst}'`
+            );
+
+        return new ArrayType(elementType, elements.length);
+    }
     Reference(node) {
         return this.visit(node._decl);
     }
@@ -201,7 +219,6 @@ class TypeChecker extends Visitor {
                 (src, dst) => `Cannot return a value of type '${src}' from a function with return type '${dst}'`
             );
         }
-
     }
     // declarations
     Param(param) {

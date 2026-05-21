@@ -1,5 +1,7 @@
 import { AST } from "./ast.mjs";
 
+const { make } = AST;
+
 export default function clean(root) {
 	root.decls ??= [];
 	root.includes ??= [];
@@ -16,5 +18,25 @@ export default function clean(root) {
 	root.forEach(AST.Function, node => {
 		node.params ??= [];
 	});
+
+	// clean up term-related parsing oddities
+	root = root.transform(AST.Term, node => {
+		switch (node.step.constructor) {
+			case AST.CallSuffix:
+				return make.Call(node.base, node.step.args).from(node);
+			case AST.SubscriptSuffix:
+				return make.Subscript(node.base, node.step.index).from(node);
+		}
+	});
+
+	root = root.transform(AST.TypeTerm, node => {
+		switch (node.step.constructor) {
+			case AST.FunctionTypeSuffix:
+				return make.FunctionType(node.base, node.step.params).from(node);
+			case AST.ArrayTypeSuffix:
+				return make.ArrayType(node.base, node.step.index).from(node);
+		}
+	});
+
 	return root;
 }

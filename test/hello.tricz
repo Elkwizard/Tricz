@@ -2,8 +2,9 @@ void output(int value) {
 	(-1 as &int)[0] += value;
 }
 
+&int input = -2 as &int;
+
 void main() {
-	&int input = -2 as &int;
 	output(@input + @input);
 	int x = 5 - 3;
 }

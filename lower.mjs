@@ -3,27 +3,16 @@ import { parse } from "./grammar/parse.mjs";
 
 const { make } = AST;
 
-const lowerSteps = root => {
-	root = root.transform(AST.Term, node => {
-		switch (node.step.constructor) {
-			case AST.CallSuffix:
-				return make.Call(node.base, node.step.args).from(node);
-			case AST.SubscriptSuffix:
-				return make.Subscript(node.base, node.step.index).from(node);
-		}
-	});
+const lowerDeclarations = root => {
+	const functions = root.decls
+		.filter(decl => decl instanceof AST.Function);
+	const nonFunctions = root.decls
+		.filter(decl => !(decl instanceof AST.Function));
 
-	root = root.transform(AST.TypeTerm, node => {
-		switch (node.step.constructor) {
-			case AST.FunctionTypeSuffix:
-				return make.FunctionType(node.base, node.step.params).from(node);
-			case AST.ArrayTypeSuffix:
-				return make.ArrayType(node.base, node.step.index).from(node);
-		}
-	});
+	root.decls = [...functions, ...nonFunctions];
 
 	return root;
-}
+};
 
 const lowerOperators = root => {
 	root.forEach(AST.Assign, node => {
@@ -36,7 +25,9 @@ const lowerOperators = root => {
 		).constructor.name;
 
 		node.op = "=";
-		node.right = make[nodeType](node.left, baseOp, node.right).from(node);
+		node.right = make[nodeType](
+			node.left, baseOp, node.right
+		).from(node);
 	});
 
 	root.forEach(AST.Sum, node => {
@@ -50,7 +41,7 @@ const lowerOperators = root => {
 };
 
 export default function lower(root) {
-	root = lowerSteps(root);
+	root = lowerDeclarations(root);
 	root = lowerOperators(root);
 	return root;
 }

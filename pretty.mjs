@@ -76,14 +76,16 @@ class PrettyPrinter extends Visitor {
 		this.tag`${type} ${name}`;
 	}
 	Function({ result, name, params, body }) {
-		this.tag`${result} ${styleText("green", name)}(${[params, ", "]}) ${body}\n`;
+		this.tag`${result} ${styleText("green", name)}(${[params, ", "]}) ${body}`;
 	}
 	root({ includes, decls }) {
 		for (const include of includes)
 			this.visit(include);
 		
-		for (const decl of decls)
+		for (const decl of decls) {
 			this.visit(decl);
+			this.println();
+		}
 	}
 	static {
 		for (const key of ["print", "println", "indent", "unindent", "toString"]) {

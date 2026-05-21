@@ -71,21 +71,26 @@ identifier = /[\w\d_]+/
 @end
 
 @begin Statement
+	Continuing = "continuing" body:Statement
 	If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:Block | ifTrue:Statement)
-	While = "while" "(" condition:Expression ")" body:Statement ("continuing" continuation:Statement)?
+	While = "while" "(" condition:Expression ")" body:Statement continuing:Continuing?
 	Return = "return" value:Expression? ";"
 
 	Control = If | While | Return
-	Block = "{" stmts:Statement* "}"
 	ExpressionStatement = value:Expression ";"
+	@begin Scope
+		Block = "{" stmts:Statement* "}"
+	@end
 
 	Statement = Block | Control | Variable | ExpressionStatement
 @end
 
 @begin Declaration
 	Param = type:Type name:identifier
-	Function = result:Type name:identifier "(" params:Param[","] ")" body:Block
 	Variable = $Param ("=" value:Expression)? ";"
+	@begin Scope
+		Function = result:Type name:identifier "(" params:Param[","] ")" body:Block
+	@end
 
 	Declaration = Function | Variable
 @end
@@ -94,4 +99,6 @@ Program = decls:Declaration
 
 Include = "include" path:string ";"
 
-root = includes:Include* decls:Declaration*
+@begin Scope
+	root = includes:Include* decls:Declaration*
+@end

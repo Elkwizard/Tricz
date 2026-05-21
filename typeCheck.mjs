@@ -143,14 +143,7 @@ class TypeChecker extends Visitor {
         return this.getCommonArithmeticType(node.left, node.right);
     }
     Cast(cast) {
-        const { target, type } = cast;
-        const srcType = this.visit(target);
-        const dstType = this.visit(type);
-
-        if (!srcType.convertibleTo(dstType))
-            cast.error(`Cannot convert type '${srcType}' to '${dstType}'`);
-
-        return dstType;
+        return this.assertConvertible(cast.target, this.visit(cast.type));
     }
     Subscript({ arr, index }) {
         const arrType = this.visit(arr);

@@ -1,5 +1,5 @@
 void output(int value) {
-	@(-1 as &int) += value;
+	(-1 as &int)[0] += value;
 }
 
 void main() {

@@ -110,6 +110,17 @@ class TypeChecker extends Visitor {
         const leftType = this.visit(node.left);
         const rightType = this.visit(node.right);
 
+        const equality = node.op === "==" || node.op === "!=";
+
+        // boolean comparison
+        if (
+            leftType === PrimitiveType.BOOL &&
+            rightType === PrimitiveType.BOOL &&
+            equality
+        ) {
+            return PrimitiveType.BOOL;
+        }
+
         // pointer comparison
         if (leftType instanceof PointerType && rightType instanceof PointerType) {
             if (!leftType.target.equals(rightType.target))

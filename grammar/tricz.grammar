@@ -1,0 +1,97 @@
+whitespace = hidden /\s+/
+comment = hidden /(\/\/.*)|\/\*([\w\W]*?)\*\//
+symbol = literals /\W+/
+fixed = /\d+\.\d+/ 
+int = /\d+/
+string = /"(\\?.)*?"/
+identifier = /[\w\d_]+/
+
+@begin Type
+	@begin Reference
+		TypeReference = name:identifier
+	@end
+
+	IntType = name:"int"
+	FixedType = name:"fixed"
+	BoolType = name:"bool"
+	VoidType = name:"void"
+	LiteralType = IntType | FixedType | BoolType | VoidType
+	NestedType = "(" replace:Type ")"
+	PointerType = "&" target:Type
+
+	BaseType = NestedType | PointerType | LiteralType | TypeReference
+
+	FunctionTypeSuffix = "(" params:Type[","] ")"
+	ArrayTypeSuffix = "[" length:Expression? "]"
+
+	// for lowering
+	FunctionType = result:Type params:Type*
+	ArrayType = element:Type length:Expression?
+
+	TypeStep = FunctionTypeSuffix | ArrayTypeSuffix
+	TypeTerm = base:BaseType step:TypeStep | BaseType
+
+	Type = TypeTerm
+@end
+
+@begin Expression
+	@begin Reference
+		Reference = name:identifier
+	@end
+
+	Int = value:int
+	Fixed = value:fixed
+	Bool = value:("true" | "false")
+	Literal = Int | Fixed | Bool
+
+	Nested = "(" replace:Expression ")"
+	BaseExpression = Nested | Literal | Reference
+
+	CallSuffix = "(" args:Expression[","] ")"
+	SubscriptSuffix = "[" index:Expression "]"
+	Step = CallSuffix | SubscriptSuffix
+
+	// for lowering
+	Call = fn:Expression args:Expression*
+	Subscript = arr:Expression index:Expression
+
+	Term = base:BaseExpression step:Step | BaseExpression
+
+	Expression = operators Term {
+		prefix Prefix ("-" | "@" | "&" | "!" | "++" | "--")
+		custom Cast (target:last "as" type:Type)
+		suffix Suffix ("++" | "--")
+		left Product ("*" | "/" | "%")
+		left Sum ("+" | "-")
+		custom Ternary (condition:last "?" ifTrue:Expression ":" ifFalse:Ternary)
+		left Compare ("<=" | ">=" | "<" | ">" | "==" | "!=")
+		left Logic ("&&" | "||")
+		right Assign ("=" | "+=" | "-=" | "/=" | "*=" | "%=" | "&&=" | "||=")
+	}
+@end
+
+@begin Statement
+	If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:Block | ifTrue:Statement)
+	While = "while" "(" condition:Expression ")" body:Statement ("continuing" continuation:Statement)?
+	Return = "return" value:Expression? ";"
+
+	Control = If | While | Return
+	Block = "{" stmts:Statement* "}"
+	ExpressionStatement = value:Expression ";"
+
+	Statement = Block | Control | Variable | ExpressionStatement
+@end
+
+@begin Declaration
+	Param = type:Type name:identifier
+	Function = result:Type name:identifier "(" params:Param[","] ")" body:Block
+	Variable = $Param ("=" value:Expression)? ";"
+
+	Declaration = Function | Variable
+@end
+
+Program = decls:Declaration
+
+Include = "include" path:string ";"
+
+root = includes:Include* decls:Declaration*

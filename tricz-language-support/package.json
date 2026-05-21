@@ -1,0 +1,40 @@
+{
+	"name": "tricz-language-support",
+	"displayName": "Tricz Language Support",
+	"description": "Provides syntax highlighting for .tricz files in Tricz",
+	"publisher": "h-hays",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.105.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "tricz",
+				"aliases": [
+					"Tricz",
+					"tricz"
+				],
+				"extensions": [
+					".tricz",
+					".pipe2"
+				],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./Icon.svg",
+					"light": "./Icon.svg"
+				}
+			}
+		],
+		"grammars": [
+			{
+				"language": "tricz",
+				"scopeName": "source.tricz",
+				"path": "./syntaxes/tricz.tmLanguage.json"
+			}
+		]
+	}
+}

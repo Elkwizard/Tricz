@@ -1,0 +1,108 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Tricz",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#includes"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#characters"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#identifiers"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [{
+				"name": "comment.block",
+				"begin": "\\/\\*",
+				"end": "\\*\\/"
+			}, {
+				"name": "comment.line",
+				"match": "\\/\\/.*"
+			}]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control",
+				"match": "\\b(if|while|return|continuing)\\b|\\?|:"
+			}, {
+				"name": "keyword.other.directive",
+				"match": "\\b(include)\\b"
+			}, {
+				"name": "storage.type",
+				"match": "\\b(int|bool|void|fixed|class)\\b|\\$"
+			}, {
+				"name": "keyword.operator",
+				"match": "\\b(as)\\b"
+			}, {
+				"name": "storage.type.function",
+				"match": "->"
+			}, {
+				"name": "constant.language.boolean",
+				"match": "\\b(false|true|null)\\b"
+			}, {
+				"name": "keyword.operator",
+				"match": "\\+|-|\\*|\\/|%|\\^|!"
+			}, {
+				"name": "keyword.operator.relational",
+				"match": "<=|>=|<|>|==|!="
+			}, {
+				"name": "keyword.operator.assignment",
+				"match": "&=|=&|="
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [{
+				"name": "constant.character.escape",
+				"match": "\\\\(u[^\"]{4}|.)"
+			}]
+		},
+		"characters": {
+			"name": "constant.character",
+			"begin": "'",
+			"end": "'",
+			"patterns": [{
+				"name": "constant.character.escape",
+				"match": "\\\\."
+			}]
+		},
+		"numbers": {
+			"name": "constant.numeric",
+			"match": "\\d+(.\\d+)?"
+		},
+		"includes": {
+			"name": "string.quoted.double",
+			"match": "(?<=\\binclude\\s+).+?;"
+		},
+		"identifiers": {
+			"patterns": [{
+				"name": "support.variable.property",
+				"match": "(?<=\\.\\s*)[_\\w\\d]+"
+			}, {
+				"name": "entity.name.function",
+				"match": "[_\\w\\d]+(?=\\s*\\()"
+			}, {
+				"name": "variable.name",
+				"match": "[_\\w\\d]+"
+			}]
+		}
+	},
+	"scopeName": "source.tricz"
+}

@@ -1,0 +1,14 @@
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="-1.8 -1.8 13.6 13.6">
+	<!-- <g stroke="skyblue" fill="none" stroke-width="0.5" transform="translate(-4.5, -1)">
+		<path d="M 2 2, C 2 8 2 8 8 8, L 8 6, C 4 6 4 6 4 2 Z" />
+		<path d="M 1 2, L 5 2" />
+		<path d="M 8 5, L 8 9" />
+	</g> -->
+	<g stroke="#ff7700" fill="none" stroke-width="1">
+		<!-- <path d="M 2 5, Q 2 1 5 1, Q 8 1 8 5, Q 8 8 5 8, L 8 8, L 8 10, L 2 10, Q 1 6 5 6, Q 6 6 6 5, Q 6 3 5 3, Q 4 3 4 5, Z" />
+		<path d="M 1 5, L 5 5" /> -->
+		<!-- <path d="M 5 5, L 2 6, L 0 0, A 3.5 2.5 0 0 1 0 5, L 0 9, L 5 7.4" /> -->
+		<path d="M 0 4, L 10 4, L 2 10, L 5 0, L 8 10, Z" transform="translate(0, 0)" stroke-line-join="miter"/>
+	</g>
+
+</svg>

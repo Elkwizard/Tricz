@@ -13,13 +13,14 @@ export class Type {
     }
 }
 
-export class PrimitiveType {
+export class PrimitiveType extends Type {
     static INT = new PrimitiveType("int");
     static FIXED = new PrimitiveType("fixed");
     static BOOL = new PrimitiveType("bool");
     static VOID = new PrimitiveType("void");
 
     constructor(name) {
+        super();
         this.name = name;
     }
 
@@ -37,10 +38,24 @@ export class PrimitiveType {
 
         return this.numeric && other.numeric;
     }
+
+    static common(a, b) {
+        if (a.equals(b)) return a;
+
+        if (a.convertibleTo(b) && b.convertibleTo(a))
+            return PrimitiveType.FIXED;
+
+        return null;
+    }
+
+    toString() {
+        return this.name;
+    }
 }
 
-export class PointerType {
+export class PointerType extends Type {
     constructor(target) {
+        super();
         this.target = target;
     }
     get numeric() {
@@ -58,10 +73,14 @@ export class PointerType {
     convertibleTo(other) {
         return other.integral;
     }
+    toString() {
+        return `&${this.target}`;
+    }
 }
 
-export class ArrayType {
+export class ArrayType extends Type {
     constructor(element, size) {
+        super();
         this.element = element;
         this.size = size;
     }
@@ -72,10 +91,14 @@ export class ArrayType {
         return  other.element.equals(this.element) &&
                 other.size === this.size;
     }
+    toString() {
+        return `${this.element}[${this.size}]`;
+    }
 }
 
-export class FunctionType {
+export class FunctionType extends Type {
     constructor(result, params) {
+        super();
         this.result = result;
         this.params = params;
     }
@@ -92,5 +115,8 @@ export class FunctionType {
     }
     convertibleTo(other) {
         return other.integral || this.equals(other);
+    }
+    toString() {
+        return `${this.result} (${this.params.join(", ")})`;
     }
 }

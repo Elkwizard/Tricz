@@ -8,6 +8,12 @@ class PrettyPrinter extends Visitor {
         super();
         this.printer = new IndentedPrinter(4);
     }
+    visit(node) {
+        super.visit(node);
+
+        if (node._type && !AST.match(node, "Type"))
+            this.print(styleText("red", `<${node._type}>`));
+    }
     tag(pieces, ...subs) {
         this.printer.tag(x => this.visit(x), pieces, subs);
     }
@@ -104,6 +110,18 @@ class PrettyPrinter extends Visitor {
 
         for (const key of ["IntType", "VoidType", "FixedType", "BoolType"]) {
             this.prototype[key] = this.prototype.LiteralType;
+        }
+
+        const prefixes = {
+            Negate: "-",
+            AddressOf: "&",
+            Dereference: "@",
+            Not: "!"
+        };
+        for (const key in prefixes) {
+            this.prototype[key] = function (node) {
+                this.tag`${styleText("magenta", prefixes[key])}${node.target}`;
+            };
         }
     }
 }

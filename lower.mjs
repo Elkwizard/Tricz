@@ -15,6 +15,19 @@ const lowerDeclarations = root => {
 };
 
 const lowerOperators = root => {
+    root = root.transform(AST.Prefix, node => {
+        const { target: a, op } = node;
+
+        switch (op) {
+            case "-": return make.Negate(a).from(node);
+            case "&": return make.AddressOf(a).from(node);
+            case "@": return make.Dereference(a).from(node);
+            case "!": return make.Not(a).from(node);
+            case "--": return make.Assign(a, "-=", make.Int("1")).from(node);
+            case "++": return make.Assign(a, "+=", make.Int("1")).from(node);
+        }
+    });
+
     root.forEach(AST.Assign, node => {
         if (node.op === "=") return;
 
@@ -33,7 +46,7 @@ const lowerOperators = root => {
     root.forEach(AST.Sum, node => {
         if (node.op === "-") {
             node.op = "+";
-            node.right = make.Prefix("-", node.right).from(node.right);
+            node.right = make.Negate(node.right).from(node.right);
         }
     });
 

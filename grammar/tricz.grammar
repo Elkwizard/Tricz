@@ -54,13 +54,21 @@ identifier = /[\w\d_]+/
 	// for lowering
 	Call = fn:Expression args:Expression*
 	Subscript = arr:Expression index:Expression
+    
+    @begin Unary
+        Unary = target:Expression
+        Negate = $Unary
+        AddressOf = $Unary
+        Dereference = $Unary
+        Not = $Unary
+    @end
 
 	Term = base:BaseExpression step:Step | BaseExpression
 
 	Expression = operators Term {
 		prefix Prefix ("-" | "@" | "&" | "!" | "++" | "--")
 		custom Cast (target:last "as" type:Type)
-		suffix Suffix ("++" | "--")
+		suffix Increment ("++" | "--")
 		left Product ("*" | "/" | "%")
 		left Sum ("+" | "-")
 		custom Ternary (condition:last "?" ifTrue:Expression ":" ifFalse:Ternary)

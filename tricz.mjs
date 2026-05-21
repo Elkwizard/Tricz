@@ -4,33 +4,33 @@ import path from "node:path";
 import fs from "node:fs";
 
 const {
-	values: {
-		output
-	},
-	positionals
+    values: {
+        output
+    },
+    positionals
 } = util.parseArgs({
-	options: {
-		output: {
-			short: "o",
-			type: "string"
-		}
-	},
-	allowPositionals: true
+    options: {
+        output: {
+            short: "o",
+            type: "string"
+        }
+    },
+    allowPositionals: true
 });
 
 if (positionals.length !== 1) {
-	console.error("Must provide one input file");
-	process.exit(1);
+    console.error("Must provide one input file");
+    process.exit(1);
 }
 
 try {
-	const file = positionals[0];
-	const source = fs.readFileSync(file, "utf-8");
-	const result = compile(source, file);
+    const file = positionals[0];
+    const source = fs.readFileSync(file, "utf-8");
+    const result = compile(source, file);
 
-	output ??= path.join(path.dirname(file), path.basename(file, path.extname(file)) + ".zez");
-	// fs.writeFileSync(output, result, "utf-8");
+    output ??= path.join(path.dirname(file), path.basename(file, path.extname(file)) + ".zez");
+    // fs.writeFileSync(output, result, "utf-8");
 } catch (err) {
-	console.error("Fatal Error:", err.stack);
-	process.exit(1);
+    console.error("Fatal Error:", err.stack);
+    process.exit(1);
 }

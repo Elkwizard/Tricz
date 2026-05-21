@@ -1,2 +1,3 @@
 *.zez
 grammar/parse.mjs
+.vscode

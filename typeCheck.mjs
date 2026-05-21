@@ -125,13 +125,7 @@ class TypeChecker extends Visitor {
     Negate(node) {
         return this.getArithmeticType(node.target);
     }
-    Multiply(node) {
-        return this.getCommonArithmeticType(node.left, node.right);
-    }
-    Divide(node) {
-        return this.getCommonArithmeticType(node.left, node.right);
-    }
-    Remainder(node) {
+    Product(node) {
         return this.getCommonArithmeticType(node.left, node.right);
     }
     Sum(node) {

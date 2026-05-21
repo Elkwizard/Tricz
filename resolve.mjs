@@ -14,7 +14,12 @@ class Resolver extends Visitor {
         return result;
     }
     declare(decl) {
-        this.scopes.at(-1)._scope.set(decl.name, decl);
+        const scope = this.scopes.at(-1)._scope;
+
+        if (scope.has(decl.name))
+            decl.error(`Cannot redeclare symbol '${decl.name}'`);
+
+        scope.set(decl.name, decl);
     }
     resolveReferences(node) {
         node.forEach(["Reference", "Scope"], node => {

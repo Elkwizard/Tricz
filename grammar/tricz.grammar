@@ -71,20 +71,20 @@ identifier = /[\w\d_]+/
 		suffix Increment ("++" | "--")
 		left Product ("*" | "/" | "%")
 		left Sum ("+" | "-")
-		custom Ternary (condition:last "?" ifTrue:Expression ":" ifFalse:Ternary)
 		left Compare ("<=" | ">=" | "<" | ">" | "==" | "!=")
 		left Logic ("&&" | "||")
+		custom Ternary (condition:last "?" ifTrue:Expression ":" ifFalse:Ternary)
 		right Assign ("=" | "+=" | "-=" | "/=" | "*=" | "%=" | "&&=" | "||=")
 	}
 @end
 
 @begin Statement
-	Continuing = "continuing" body:Statement
 	If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:Block | ifTrue:Statement)
-	While = "while" "(" condition:Expression ")" body:Statement continuing:Continuing?
+	While = "while" "(" condition:Expression ")" body:Statement ("continuing" continuing:Statement?)
+    For = "for" "(" (init:Statement | ";") condition:Expression? ";" next:Expression ")" body:Statement
 	Return = "return" value:Expression? ";"
 
-	Control = If | While | Return
+	Control = If | For | While | Return
 	ExpressionStatement = value:Expression ";"
 	@begin Scope
 		Block = "{" stmts:Statement* "}"

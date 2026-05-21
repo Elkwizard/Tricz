@@ -53,8 +53,30 @@ const lowerOperators = root => {
     return root;
 };
 
+const lowerLoops = root => {
+
+    root = root.transform(AST.For, node => {
+        const loop = make.While(
+            node.condition ?? make.Bool("true").from(node),
+            node.body,
+            node.next ? make.ExpressionStatement(node.next).from(node.next) : undefined
+        ).from(node);
+
+        if (node.init)
+            return make.Block([
+                node.init,
+                loop
+            ]);
+
+        return loop;
+    });
+
+    return root;
+};
+
 export default function lower(root) {
     root = lowerDeclarations(root);
     root = lowerOperators(root);
+    root = lowerLoops(root);
     return root;
 }

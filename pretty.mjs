@@ -4,15 +4,20 @@ import { AST } from "./ast.mjs";
 import { styleText } from "node:util";
 
 class PrettyPrinter extends Visitor {
-    constructor() {
+    constructor({
+        decor = true
+    } = { }) {
         super();
+        this.decor = decor;
         this.printer = new IndentedPrinter(4);
     }
     visit(node) {
         super.visit(node);
 
-        if (node._type && !AST.match(node, "Type"))
-            this.print(styleText("red", `<${node._type}>`));
+        if (this.decor) {
+            if (node._type && !AST.match(node, "Type"))
+                this.print(styleText("red", `<${node._type}>`));
+        }
     }
     tag(pieces, ...subs) {
         this.printer.tag(x => this.visit(x), pieces, subs);
@@ -24,10 +29,13 @@ class PrettyPrinter extends Visitor {
     Reference({ name }) {
         this.print(name);
     }
+    Ternary({ condition, ifTrue, ifFalse }) {
+        this.tag`(${condition} ${styleText("magenta", "?")} ${ifTrue} ${styleText("magenta", ":")} ${ifFalse})`;
+    }
     Prefix({ op, target }) {
         this.tag`(${styleText("magenta", op)}${target})`;
     }
-    Suffix({ op, target }) {
+    Increment({ op, target }) {
         this.tag`(${target}${styleText("magenta", op)})`;
     }
     Cast({ target, type }) {
@@ -68,6 +76,22 @@ class PrettyPrinter extends Visitor {
             this.visit(stmt);
         this.unindent();
         this.println("}");
+    }
+    For({ init, condition, next, body }) {
+        this.tag`${styleText("magenta", "for")} (${init ?? ";"} ${condition}; ${next}) ${body}`;
+    }
+    While({ condition, body, continuing }) {
+        this.tag`${styleText("magenta", "while")} (${condition}) ${body}`;
+        if (continuing) this.tag`${styleText("magenta", "continuing")} ${continuing}`;
+    }
+    If({ condition, ifTrue, ifFalse }) {
+        this.tag`${styleText("magenta", "if")} (${condition}) ${ifTrue}`;
+        if (ifFalse) this.tag` ${styleText("magenta", "else")} ${ifFalse}`;
+    }
+    Return({ value }) {
+        this.print(styleText("magenta", "return"));
+        if (value) this.tag` ${value}`;
+        this.println(";");
     }
     // declarations
     Include({ path }) {
@@ -127,11 +151,11 @@ class PrettyPrinter extends Visitor {
 }
 
 AST.prototype.toString = function () {
-    return prettyPrint(this);
+    return prettyPrint(this, { decor: false });
 };
 
-export default function prettyPrint(root) {
-    const printer = new PrettyPrinter();
+export default function prettyPrint(root, options) {
+    const printer = new PrettyPrinter(options);
     printer.visit(root);
     return printer.toString();
 }

@@ -2,9 +2,19 @@ void output(int value) {
 	(-1 as &int)[0] += value;
 }
 
+int min(int x, int y) {
+    return x < y ? x : y;
+}
+
 &int input = -2 as &int;
 
 void main() {
-	output(@input + @input);
-	int x = 5 - 3;
+    for (int i = 0; i < 10; i++) {
+        int x;
+        if ((x = min(3, 4)) == 3 && true) {
+            output(@input + @input + x);
+        } else {
+            output(@input + x);
+        }
+    }
 }

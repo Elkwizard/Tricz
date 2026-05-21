@@ -37,12 +37,12 @@ class Resolver extends Visitor {
             node.error(`Undefined symbol '${node.name}'`);
         });
     }
-    ExpressionStatement(expr) {
-        this.resolveReferences(expr.value);
-    }
     Block(block) {
-        for (const stmt of block.stmts)
-            this.visit(stmt);
+        for (const stmt of block.stmts) {
+            this.resolveReferences(stmt);
+            if (AST.match(stmt, "Declaration"))
+                this.declare(stmt);
+        }
     }
     Param(param) {
         this.resolveReferences(param.type);

@@ -38,7 +38,7 @@
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control",
-				"match": "\\b(if|while|return|continuing)\\b|\\?|:"
+				"match": "\\b(if|else|for|while|return|continuing)\\b|\\?|:"
 			}, {
 				"name": "keyword.other.directive",
 				"match": "\\b(include)\\b"

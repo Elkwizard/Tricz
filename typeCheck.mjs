@@ -6,11 +6,10 @@ import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 class TypeChecker extends Visitor {
     constructor() {
         super();
-        this.returnType = null;
+        this.returnTypes = [];
     }
     visit(node) {
-        const result = node._type ??= super.visit(node);
-        return result;
+        return node._type ??= super.visit(node);
     }
     // type
     IntType() {
@@ -65,25 +64,60 @@ class TypeChecker extends Visitor {
 
         return ptrType.target;
     }
+    Increment(node) {
+        return this.getArithmeticType(node.target);
+    }
+    Ternary(node) {
+        this.assertCondition(node.condition);
+
+        const trueType = this.visit(node.ifTrue);
+        const falseType = this.visit(node.ifFalse);
+
+        const common = Type.common(trueType, falseType);
+
+        if (!common) node.error(`No common type exists between ? options, '${trueType}' and '${falseType}'`);
+
+        return common;
+    }
+    Not(node) {
+        this.assertLogical(node.target);
+        return PrimitiveType.BOOL;
+    }
+    Logic(node) {
+        this.assertLogical(node.left);
+        this.assertLogical(node.right);
+        return PrimitiveType.BOOL;
+    }
+    Compare(node) {
+        const leftType = this.visit(node.left);
+        const rightType = this.visit(node.right);
+
+        // pointer comparison
+        if (leftType instanceof PointerType && rightType instanceof PointerType) {
+            if (!leftType.target.equals(rightType.target))
+                node.error(`Cannot compare pointers to different types: '${leftType}' and '${rightType}'`);
+
+            return PrimitiveType.BOOL;
+        }
+
+        // arithmetic comparison
+        this.getCommonArithmeticType(node.left, node.right);
+        return PrimitiveType.BOOL;
+    }
     Negate(node) {
-        const type = this.visit(node.target);
-
-        if (type !== PrimitiveType.INT && type !== PrimitiveType.FIXED)
-            node.error(`Cannot negate non-numeric type '${type}'`);
-
-        return type;
+        return this.getArithmeticType(node.target);
     }
     Multiply(node) {
-        return this.getCommonNumericType(node.left, node.right);
+        return this.getCommonArithmeticType(node.left, node.right);
     }
     Divide(node) {
-        return this.getCommonNumericType(node.left, node.right);
+        return this.getCommonArithmeticType(node.left, node.right);
     }
     Remainder(node) {
-        return this.getCommonNumericType(node.left, node.right);
+        return this.getCommonArithmeticType(node.left, node.right);
     }
     Sum(node) {
-        return this.getCommonNumericType(node.left, node.right);
+        return this.getCommonArithmeticType(node.left, node.right);
     }
     Cast(cast) {
         const { target, type } = cast;
@@ -123,24 +157,16 @@ class TypeChecker extends Visitor {
             const argType = this.visit(args[i]);
             const paramType = fnType.params[i];
 
-            if (!argType.convertibleTo(paramType))
-                args[i].error(`Cannot pass argument of type '${argType}' to parameter of type '${paramType}' (parameter #${i + 1})`);
-
-            argType._targetType = paramType;
+            this.assertConvertible(
+                args[i], fnType.params[i],
+                (src, dst) => `Cannot pass argument of type '${argType}' to parameter of type '${paramType}' (parameter #${i + 1})`
+            );
         }
 
         return fnType.result;
     }
     Assign({ left, right }) {
-        const dstType = this.visit(left);
-        const srcType = this.visit(right);
-
-        if (!srcType.convertibleTo(dstType))
-            right.error(`Cannot assign type '${srcType}' to variable of type '${dstType}'`);
-
-        right._targetType = dstType;
-
-        return dstType;
+        return this.assertConvertible(right, this.visit(left));
     }
     // statements
     ExpressionStatement(stmt) {
@@ -149,6 +175,33 @@ class TypeChecker extends Visitor {
     Block(block) {
         for (const stmt of block.stmts)
             this.visit(stmt);
+    }
+    While(loop) {
+        this.assertCondition(loop.condition);
+        this.visit(loop.body);
+        if (loop.continuing) this.visit(loop.continuing);
+    }
+    If(branch) {
+        this.assertCondition(branch.condition);
+        this.visit(branch.ifTrue);
+        if (branch.ifFalse) this.visit(branch.ifFalse);
+    }
+    Return(node) {
+        const returnType = this.returnTypes.at(-1);
+
+        if (!node.value) {
+            if (returnType !== PrimitiveType.VOID)
+                node.error(`Must return a value from a function with non-void return type '${returnType}'`);
+        } else {
+            if (node.value && returnType === PrimitiveType.VOID)
+                node.error(`Cannot return a value from a void function`);
+
+            this.assertConvertible(
+                node.value, returnType,
+                (src, dst) => `Cannot return a value of type '${src}' from a function with return type '${dst}'`
+            );
+        }
+
     }
     // declarations
     Param(param) {
@@ -163,9 +216,11 @@ class TypeChecker extends Visitor {
             fn.params.map(param => this.visit(param))
         );
 
-        this.returnType = fn._type.result;
+        this.returnTypes.push(fn._type.result);
 
         this.visit(fn.body);
+
+        this.returnTypes.pop();
 
         return fn._type;
     }
@@ -181,18 +236,38 @@ class TypeChecker extends Visitor {
         
         return type;
     }
-    getCommonNumericType(a, b) {
+    getCommonArithmeticType(a, b) {
         const aType = this.getArithmeticType(a);
         const bType = this.getArithmeticType(b);
 
-        if (aType.equals(bType))
-            return aType;
+        const common = Type.common(aType, bType);
 
-        const result = PrimitiveType.FIXED;
-        aType._targetType = result;
-        bType._targetType = result;
+        aType._targetType = common;
+        bType._targetType = common;
 
-        return result;
+        return common;
+    }
+    assertConvertible(
+        node, type,
+        message = (src, dst) => `Cannot convert type '${src}' to type '${dst}'`
+    ) {
+        const nodeType = this.visit(node);
+        if (!nodeType.convertibleTo(type))
+            node.error(message(nodeType, type));
+        node._targetType = type;
+        return type;
+    }
+    assertCondition(condition) {
+        this.assertConvertible(
+            condition, PrimitiveType.BOOL,
+            src => `Cannot use non-boolean type '${src}' as a condition`
+        );
+    }
+    assertLogical(condition) {
+        this.assertConvertible(
+            condition, PrimitiveType.BOOL,
+            src => `Cannot perform logic on non-boolean type '${src}'`
+        );
     }
 }
 

@@ -11,6 +11,14 @@ export class Type {
     convertibleTo(other) {
         return this.equals(other);
     }
+    static common(a, b) {
+        if (a.equals(b)) return a;
+
+        if (a instanceof PrimitiveType && b instanceof PrimitiveType)
+            return a.numeric && b.numeric ? PrimitiveType.FIXED : null;
+
+        return null;
+    }
 }
 
 export class PrimitiveType extends Type {
@@ -37,15 +45,6 @@ export class PrimitiveType extends Type {
             return true;
 
         return this.numeric && other.numeric;
-    }
-
-    static common(a, b) {
-        if (a.equals(b)) return a;
-
-        if (a.convertibleTo(b) && b.convertibleTo(a))
-            return PrimitiveType.FIXED;
-
-        return null;
     }
 
     toString() {

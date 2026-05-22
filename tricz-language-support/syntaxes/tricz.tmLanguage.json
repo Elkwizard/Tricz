@@ -38,7 +38,7 @@
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control",
-				"match": "\\b(if|else|for|while|return|continuing)\\b|\\?|:"
+				"match": "\\b(if|else|for|break|continue|while|return|continuing)\\b|\\?|:"
 			}, {
 				"name": "keyword.other.directive",
 				"match": "\\b(include)\\b"
@@ -56,13 +56,16 @@
 				"match": "\\b(false|true|null)\\b"
 			}, {
 				"name": "keyword.operator",
-				"match": "\\+|-|\\*|\\/|%|\\^|!"
+				"match": "\\+|-|\\*|\\/|%|\\^|!|&|@"
 			}, {
 				"name": "keyword.operator.relational",
 				"match": "<=|>=|<|>|==|!="
 			}, {
+				"name": "keyword.operator.relational",
+				"match": "&&|\\|\\|"
+			}, {
 				"name": "keyword.operator.assignment",
-				"match": "&=|=&|="
+				"match": "(\\+|-|\\*|\\/|%|\\|\\||&&)?="
 			}]
 		},
 		"strings": {
@@ -99,7 +102,10 @@
 				"name": "entity.name.function",
 				"match": "[_\\w\\d]+(?=\\s*\\()"
 			}, {
-				"name": "variable.name",
+				"name": "variable.other.unknown.label",
+				"match": "[_\\w\\d]+(?=:)|(?<=\\b(break|continue)\\s+)[_\\w\\d]+"
+			}, {
+				"name": "support.variable.property",
 				"match": "[_\\w\\d]+"
 			}]
 		}

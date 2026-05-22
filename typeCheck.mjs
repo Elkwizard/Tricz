@@ -7,6 +7,7 @@ class TypeChecker extends Visitor {
     constructor() {
         super();
         this.returnTypes = [];
+        this.loops = [];
     }
     visit(node) {
         return node._type ??= super.visit(node);
@@ -69,6 +70,9 @@ class TypeChecker extends Visitor {
         return new ArrayType(elementType, elements.length);
     }
     Reference(node) {
+        const { _decl } = node;
+        if (_decl instanceof AST.While)
+            node.error(`Cannot refer to loop label as an expression`);
         return this.visit(node._decl);
     }
     AddressOf(node) {
@@ -192,10 +196,42 @@ class TypeChecker extends Visitor {
         for (const stmt of block.stmts)
             this.visit(stmt);
     }
+    checkLoopControl(stmt, stmtName) {
+        const loop = this.loops.at(-1);
+        if (!loop || loop instanceof AST.Function)
+            stmt.error(`Cannot ${stmtName} outside of a loop`);
+
+        if (loop instanceof AST.Continuing)
+            stmt.error(`Cannot ${stmtName} from within a continuing clause`);
+
+        if (stmt.name) {
+            if (!(stmt._decl instanceof AST.While))
+                stmt.error(`Cannot ${stmtName} non-loop`);
+
+            stmt._loop = stmt._decl;
+        } else {
+            stmt._loop = loop;
+        }
+    }
+    Break(stmt) {
+        this.checkLoopControl(stmt, "break");
+    }
+    Continue(stmt) {
+        this.checkLoopControl(stmt, "continue");
+    }
     While(loop) {
+        this.loops.push(loop);
+        
         this.assertCondition(loop.condition);
         this.visit(loop.body);
         if (loop.continuing) this.visit(loop.continuing);
+
+        this.loops.pop();
+    }
+    Continuing(continuing) {
+        this.loops.push(continuing);
+        this.visit(continuing.body);
+        this.loops.pop();
     }
     If(branch) {
         this.assertCondition(branch.condition);
@@ -226,6 +262,8 @@ class TypeChecker extends Visitor {
         return this.visit(variable.type);
     }
     Function(fn) {
+        this.loops.push(fn);
+
         fn._type = new FunctionType(
             this.visit(fn.result),
             fn.params.map(param => this.visit(param))
@@ -236,6 +274,8 @@ class TypeChecker extends Visitor {
         this.visit(fn.body);
 
         this.returnTypes.pop();
+
+        this.loops.pop();
 
         return fn._type;
     }

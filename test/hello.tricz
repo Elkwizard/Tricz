@@ -18,16 +18,37 @@ void main() {
 
     int q = 3.0 * 5;
 
+    while (true) { true;}
+
     if (true == false) {
         return;
     }
 
-    for (int i = 0; i < x[i][0]; i++) {
+    outer: for (int i = 0; i < x[i][0]; i++) {
+        // int x = outer;
         int x;
         if ((x = min(3, 4)) == 3 && true) {
             output(@input + @input + x);
         } else {
             output(@input + x);
+
+            // break x;
+
+            while (true) {
+                break outer;
+            }
         }
     }
+
+    labeled: while (true) {
+        while (x[0][0] > 2) {
+            break;
+        } continuing {
+            // break labeled;
+        }
+    }
+    
+    // break outermost;
+
+    // break outer;
 }

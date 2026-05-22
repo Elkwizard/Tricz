@@ -79,19 +79,29 @@ identifier = /[\w\d_]+/
 	}
 @end
 
+Continuing = "continuing" body:Statement
+
 @begin Statement
-	If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:Block | ifTrue:Statement)
-	While = "while" "(" condition:Expression ")" body:Statement ("continuing" continuing:Statement?)
-    For = "for" "(" (init:Statement | ";") condition:Expression? ";" next:Expression ")" body:Statement
+    Label = (name:identifier ":")?
+    If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:Block | ifTrue:Statement)
+    @begin Declaration
+        While = $Label "while" "(" condition:Expression ")" body:Statement continuing:Continuing?
+        For = $Label "for" "(" (init:Variable | ExpressionStatement | ";") condition:Expression? ";" next:Expression ")" body:Statement
+    @end
 	Return = "return" value:Expression? ";"
 
-	Control = If | For | While | Return
+    @begin Reference
+        Break = "break" name:identifier? ";"
+        Continue = "continue" name:identifier? ";"
+    @end
+
+	Control = If | For | While | Return | Break | Continue
 	ExpressionStatement = value:Expression ";"
 	@begin Scope
-		Block = "{" stmts:Statement* "}"
+		Block = "{" stmts:(Statement | Variable)* "}"
 	@end
 
-	Statement = Block | Control | Variable | ExpressionStatement
+	Statement = Block | Control | ExpressionStatement
 @end
 
 @begin Declaration

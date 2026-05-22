@@ -83,7 +83,22 @@ class PrettyPrinter extends Visitor {
         this.unindent();
         this.println("}");
     }
-    For({ init, condition, next, body }) {
+    label(name) {
+        if (name) this.tag`${styleText("blue", name)}: `;
+    }
+    loopControl({ name }, keyword) {
+        this.tag`${styleText("magenta", keyword)}`;
+        if (name) this.tag` ${styleText("blue", name)}`;
+        this.println(";");
+    }
+    Break(node) {
+        this.loopControl(node, "break");
+    }
+    Continue(node) {
+        this.loopControl(node, "continue");
+    }
+    For({ name, init, condition, next, body }) {
+        this.label(name);
         this.tag`${styleText("magenta", "for")} (\n`;
         this.indent();
         if (init) this.visit(init);
@@ -95,9 +110,13 @@ class PrettyPrinter extends Visitor {
         this.unindent();
         this.tag`) ${body}`;
     }
-    While({ condition, body, continuing }) {
+    While({ name, condition, body, continuing }) {
+        this.label(name);
         this.tag`${styleText("magenta", "while")} (${condition}) ${body}`;
-        if (continuing) this.tag`${styleText("magenta", "continuing")} ${continuing}`;
+        if (continuing) this.visit(continuing);
+    }
+    Continuing({ body }) {
+        this.tag`${styleText("magenta", "continuing")} ${body}`;
     }
     If({ condition, ifTrue, ifFalse }) {
         this.tag`${styleText("magenta", "if")} (${condition}) ${ifTrue}`;
@@ -166,7 +185,7 @@ class PrettyPrinter extends Visitor {
 }
 
 AST.prototype.toString = function () {
-    return prettyPrint(this, { decor: false });
+    return prettyPrint(this, { decor: false }).trim();
 };
 
 export default function prettyPrint(root, options) {

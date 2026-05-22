@@ -11,6 +11,7 @@ export default function compile(source, filename) {
     root = clean(root);
     console.log(prettyPrint(root));
     root = lower(root);
+    console.log(prettyPrint(root));
     root = resolveReferences(root);
     root = lowerResolved(root);
     console.log(prettyPrint(root));

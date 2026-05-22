@@ -13,8 +13,8 @@ class Resolver extends Visitor {
         if (isScope) this.scopes.pop();
         return result;
     }
-    declare(decl) {
-        const scope = this.scopes.at(-1)._scope;
+    declare(decl, scope = this.scopes.at(-1)) {
+        scope = scope._scope;
 
         if (scope.has(decl.name))
             decl.error(`Cannot redeclare symbol '${decl.name}'`);
@@ -22,13 +22,13 @@ class Resolver extends Visitor {
         scope.set(decl.name, decl);
     }
     resolveReferences(node) {
-        node.forEach(["Reference", "Scope"], node => {
-            if (AST.match(node, "Scope")) {
+        node.forEach(["Reference", "Scope", "Declaration"], node => {
+            if (!AST.match(node, "Reference")) {
                 this.visit(node);
                 return false;
             }
 
-            if (node._decl) return;
+            if (node._decl || !node.name) return;
 
             for (let i = this.scopes.length - 1; i >= 0; i--) {
                 const scope = this.scopes[i]._scope;
@@ -42,27 +42,32 @@ class Resolver extends Visitor {
             node.error(`Undefined symbol '${node.name}'`);
         });
     }
+    While(loop) {
+        if (loop.name && loop.body instanceof AST.Block)
+            this.declare(loop, loop.body);
+        this.resolveReferences(loop.condition);
+        this.visit(loop.body);
+        if (loop.continuing) this.resolveReferences(loop.continuing);
+    }
     Block(block) {
-        for (const stmt of block.stmts) {
+        for (const stmt of block.stmts)
             this.resolveReferences(stmt);
-            if (AST.match(stmt, "Declaration"))
-                this.declare(stmt);
-        }
     }
     Param(param) {
         this.resolveReferences(param.type);
+        this.declare(param);
     }
     Variable(variable) {
         this.resolveReferences(variable.type);
         if (variable.value) this.resolveReferences(variable.value);
+        this.declare(variable);
     }
+    // functions are pre-declared, and thus don't declare themselves
     Function(fn) {
         this.resolveReferences(fn.result);
         
-        for (const param of fn.params) {
-            this.declare(param);
+        for (const param of fn.params)
             this.visit(param);
-        }
 
         this.visit(fn.body);
     }
@@ -73,9 +78,11 @@ class Resolver extends Visitor {
 
         // first put all global symbols into global scope, checking variables in order
         for (const decl of root.decls) {
-            this.declare(decl);
-            if (decl instanceof AST.Variable)
+            if (decl instanceof AST.Function) {
+                this.declare(decl);
+            } else {
                 this.visit(decl);
+            }
         }
 
         // now check functions, since the global scope is full

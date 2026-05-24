@@ -1,7 +1,9 @@
 import clean from "./clean.mjs";
+import codegen from "./codegen.mjs";
 import { parse } from "./grammar/parse.mjs";
 import lower from "./lower.mjs";
 import lowerResolved from "./lowerResolved.mjs";
+import optimize from "./optimize.mjs";
 import prettyPrint from "./pretty.mjs";
 import resolveReferences from "./resolve.mjs";
 import toIR from "./toIR.mjs";
@@ -19,5 +21,7 @@ export default function compile(source, config) {
     console.log(prettyPrint(root));
 
     const ir = toIR(root, config);
-    // console.dir(root.removeMetadata(), {depth: null});
+    const optimized = ir.map(optimize);
+    const zez = codegen(optimized);
+    return zez;
 }

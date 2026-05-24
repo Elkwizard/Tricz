@@ -8,18 +8,23 @@ class Resolver extends Visitor {
     }
     visit(node) {
         const isScope = AST.match(node, "Scope");
-        if (isScope) this.scopes.push(node);
+        if (isScope) {
+            node._parent = this.scopes.at(-1);
+            this.scopes.push(node);
+        }
         const result = super.visit(node);
         if (isScope) this.scopes.pop();
         return result;
     }
     declare(decl, scope = this.scopes.at(-1)) {
-        scope = scope._scope;
+        const { _decls } = scope;
 
-        if (scope.has(decl.name))
+        if (_decls.has(decl.name))
             decl.error(`Cannot redeclare symbol '${decl.name}'`);
 
-        scope.set(decl.name, decl);
+        _decls.set(decl.name, decl);
+
+        decl._scope = scope;
     }
     resolveReferences(node) {
         node.forEach(["Reference", "Scope", "Declaration"], node => {
@@ -31,7 +36,7 @@ class Resolver extends Visitor {
             if (node._decl || !node.name) return;
 
             for (let i = this.scopes.length - 1; i >= 0; i--) {
-                const scope = this.scopes[i]._scope;
+                const scope = this.scopes[i]._decls;
 
                 if (scope.has(node.name)) {
                     node._decl = scope.get(node.name);
@@ -73,7 +78,7 @@ class Resolver extends Visitor {
     }
     root(root) {
         root.forEach("Scope", node => {
-            node._scope = new Map();
+            node._decls = new Map();
         });
 
         // first put all global symbols into global scope, checking variables in order
@@ -91,7 +96,7 @@ class Resolver extends Visitor {
                 this.visit(decl);
         }
 
-        const entry = root._scope.get("main");
+        const entry = root._decls.get("main");
         if (!entry)
             root.error(`Program must contain an entry point: void main()`);
 

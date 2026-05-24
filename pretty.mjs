@@ -16,7 +16,7 @@ class PrettyPrinter extends Visitor {
 
         if (this.decor) {
             if (node._type && !AST.match(node, "Type"))
-                this.print(styleText("red", `<${node._type}>`));
+                this.print(styleText("red", `${node._type}`));
         }
     }
     tag(pieces, ...subs) {
@@ -42,15 +42,15 @@ class PrettyPrinter extends Visitor {
         this.tag`(${target} ${styleText("magenta", "as")} ${type})`;
     }
     Subscript({ arr, index }) {
-        this.tag`${arr}[${index}]`;
+        this.tag`(${arr}[${index}])`;
     }
     Call({ fn, args }) {
         if (fn instanceof AST.Reference) {
-            this.tag`${styleText("green", fn.name)}`;
+            this.tag`(${styleText("green", fn.name)}`;
         } else {
-            this.tag`${fn}`;
+            this.tag`(${fn}`;
         }
-        this.tag`(${[args, ", "]})`;
+        this.tag`(${[args, ", "]}))`;
     }
     BinaryOperator({ left, op, right }) {
         this.tag`(${left} ${styleText("magenta", op)} ${right})`;
@@ -69,7 +69,10 @@ class PrettyPrinter extends Visitor {
         this.print(styleText("cyan", name));
     }
     ArrayType({ element, length }) {
-        this.tag`${element}[${length ?? ""}]`;
+        this.tag`${element}${styleText("cyan", "[")}${length ?? ""}${styleText("cyan", "]")}`;
+    }
+    FunctionType({ result, params }) {
+        this.tag`${result}${styleText("cyan", "(")}${[params, styleText("cyan", ", ")]}${styleText("cyan", ")")}`;
     }
     // statements
     ExpressionStatement({ value }) {
@@ -178,7 +181,7 @@ class PrettyPrinter extends Visitor {
         };
         for (const key in prefixes) {
             this.prototype[key] = function (node) {
-                this.tag`${styleText("magenta", prefixes[key])}${node.target}`;
+                this.tag`(${styleText("magenta", prefixes[key])}${node.target})`;
             };
         }
     }

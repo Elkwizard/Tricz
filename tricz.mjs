@@ -5,13 +5,18 @@ import fs from "node:fs";
 
 const {
     values: {
-        output
+        output,
+        "fixed-precision": fixedPrecision
     },
     positionals
 } = util.parseArgs({
     options: {
         output: {
             short: "o",
+            type: "string"
+        },
+        "fixed-precision": {
+            short: "p",
             type: "string"
         }
     },
@@ -24,9 +29,13 @@ if (positionals.length !== 1) {
 }
 
 try {
+    console.log(fixedPrecision);
     const file = positionals[0];
     const source = fs.readFileSync(file, "utf-8");
-    const result = compile(source, file);
+    const result = compile(source, {
+        filename: file,
+        fixedPrecision: +(fixedPrecision ?? "10")
+    });
 
     output ??= path.join(path.dirname(file), path.basename(file, path.extname(file)) + ".zez");
     // fs.writeFileSync(output, result, "utf-8");

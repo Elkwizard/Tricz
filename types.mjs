@@ -5,6 +5,9 @@ export class Type {
     get numeric() {
         return this.integral;
     }
+    get size() {
+        return 1;
+    }
     equals(other) {
         return this === other;
     }
@@ -22,14 +25,15 @@ export class Type {
 }
 
 export class PrimitiveType extends Type {
-    static INT = new PrimitiveType("int");
-    static FIXED = new PrimitiveType("fixed");
-    static BOOL = new PrimitiveType("bool");
-    static VOID = new PrimitiveType("void");
+    static INT = new PrimitiveType("int", "ℤ");
+    static FIXED = new PrimitiveType("fixed", "𝔽");
+    static BOOL = new PrimitiveType("bool", "𝔹");
+    static VOID = new PrimitiveType("void", "𝕍");
 
-    constructor(name) {
+    constructor(name, symbol) {
         super();
         this.name = name;
+        this.symbol = symbol;
     }
 
     get integral() {
@@ -48,7 +52,7 @@ export class PrimitiveType extends Type {
     }
 
     toString() {
-        return this.name;
+        return this.symbol;
     }
 }
 
@@ -78,20 +82,23 @@ export class PointerType extends Type {
 }
 
 export class ArrayType extends Type {
-    constructor(element, size) {
+    constructor(element, length) {
         super();
         this.element = element;
-        this.size = size;
+        this.length = length;
+    }
+    get size() {
+        return this.element.size * this.length;
     }
     equals(other) {
         if (!(other instanceof ArrayType))
             return false;
 
         return  other.element.equals(this.element) &&
-                other.size === this.size;
+                other.length === this.length;
     }
     toString() {
-        return `${this.element}[${this.size}]`;
+        return `${this.element}[${this.length}]`;
     }
 }
 
@@ -116,6 +123,6 @@ export class FunctionType extends Type {
         return other.integral || this.equals(other);
     }
     toString() {
-        return `${this.result} (${this.params.join(", ")})`;
+        return `${this.result}(${this.params.join(", ")})`;
     }
 }

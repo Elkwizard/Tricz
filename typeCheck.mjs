@@ -76,6 +76,7 @@ class TypeChecker extends Visitor {
         return this.visit(node._decl);
     }
     AddressOf(node) {
+        this.assertLValue(node.target, `Cannot take the address of a non-lvalue`);
         return new PointerType(this.visit(node.target));
     }
     Dereference(node) {
@@ -122,6 +123,7 @@ class TypeChecker extends Visitor {
             rightType === PrimitiveType.BOOL &&
             equality
         ) {
+            node._compareType = PrimitiveType.BOOL;
             return PrimitiveType.BOOL;
         }
 
@@ -130,11 +132,12 @@ class TypeChecker extends Visitor {
             if (!leftType.target.equals(rightType.target))
                 node.error(`Cannot compare pointers to different types: '${leftType}' and '${rightType}'`);
 
+            node._compareType = leftType;
             return PrimitiveType.BOOL;
         }
 
         // arithmetic comparison
-        this.getCommonArithmeticType(node.left, node.right);
+        node._compareType = this.getCommonArithmeticType(node.left, node.right);
         return PrimitiveType.BOOL;
     }
     Negate(node) {
@@ -156,13 +159,10 @@ class TypeChecker extends Visitor {
         if (indexType !== PrimitiveType.INT)
             index.error(`Cannot subscript array with non-int type '${indexType}'`);
         
-        if (arrType instanceof ArrayType)
-            return arrType.element;
-
-        if (arrType instanceof PointerType)
-            return arrType.target;
-
-        arr.error(`Cannot subscript non-array/pointer type '${arrType}'`);
+        if (!(arrType instanceof ArrayType))
+            arr.error(`Cannot subscript non-array type '${arrType}'`);
+            
+        return arrType.element;
     }
     Call({ fn, args }) {
         const fnType = this.visit(fn);
@@ -186,6 +186,7 @@ class TypeChecker extends Visitor {
         return fnType.result;
     }
     Assign({ left, right }) {
+        this.assertLValue(left, `Cannot assign to a non-lvalue`);
         return this.assertConvertible(right, this.visit(left));
     }
     // statements
@@ -297,8 +298,8 @@ class TypeChecker extends Visitor {
 
         const common = Type.common(aType, bType);
 
-        aType._targetType = common;
-        bType._targetType = common;
+        a._targetType = common;
+        b._targetType = common;
 
         return common;
     }
@@ -323,6 +324,25 @@ class TypeChecker extends Visitor {
             condition, PrimitiveType.BOOL,
             src => `Cannot perform logic on non-boolean type '${src}'`
         );
+    }
+    assertLValue(expr, message) {
+        this.visit(expr); // probably produces better error messages if it fails
+
+        if (expr instanceof AST.Dereference)
+            return;
+
+        if (expr instanceof AST.Reference) {
+            if (expr._decl instanceof AST.Function)
+                expr.error(message);
+            return;
+        }
+
+        if (expr instanceof AST.Subscript) {
+            this.assertLValue(expr.arr, message);
+            return;
+        }
+
+        expr.error(message);
     }
 }
 

@@ -34,7 +34,7 @@ export default function clean(root) {
             case AST.FunctionTypeSuffix:
                 return make.FunctionType(node.base, node.step.params).from(node);
             case AST.ArrayTypeSuffix:
-                return make.ArrayType(node.base, node.step.index).from(node);
+                return make.ArrayType(node.base, node.step.length).from(node);
         }
     });
 

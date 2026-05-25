@@ -1,0 +1,11 @@
+void main() {
+    int x = 0;
+    x += -(x = 3);
+
+    while (x < 4) {
+        @(-1 as &int) += x;
+        // x++;
+    } continuing {
+        x++;
+    }
+}

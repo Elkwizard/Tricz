@@ -3,7 +3,7 @@ import { AST } from "./ast.mjs";
 import { PointerType, PrimitiveType } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.mjs";
-import { Add, Address, Branch, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder } from "./ir.mjs";
+import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl } from "./ir.mjs";
 
 const { make } = AST;
 
@@ -124,7 +124,7 @@ class JumpGenerator extends Visitor {
         switch (logic.op) {
             case "&&": return [
                 ...this.visit(logic.left, afterFirst, this.ifFalse),
-                afterFirst,
+                new LabelDecl(afterFirst),
                 ...this.visit(logic.right, this.ifTrue, this.ifFalse)
             ];
         }
@@ -144,7 +144,7 @@ class JumpGenerator extends Visitor {
 
         return [
             ...diff.stmts,
-            new Branch(
+            new CompareJump(
                 diff.value, node.op,
                 this.ifTrue
             ),
@@ -201,12 +201,12 @@ class IRGenerator extends Visitor {
         const endLabel = new Label();
         return [
             ...this.jump.visit(condition, ifLabel, elseLabel),
-            ifLabel,
+            new LabelDecl(ifLabel),
             ...ifTrue,
             new Jump(elseLabel),
-            elseLabel,
+            new LabelDecl(elseLabel),
             ...ifFalse,
-            endLabel
+            new LabelDecl(endLabel)
         ];
     }
     visit(node) {
@@ -226,17 +226,17 @@ class IRGenerator extends Visitor {
     While(loop) {
         return [
             new Jump(loop._labels.check),
-            loop._labels.start,
+            new LabelDecl(loop._labels.start),
             ...this.visit(loop.body),
-            loop._labels.continuing,
+            new LabelDecl(loop._labels.continuing),
             ...(loop.continuing ? this.visit(loop.continuing) : []),
-            loop._labels.check,
+            new LabelDecl(loop._labels.check),
             ...this.jump.visit(
                 loop.condition,
                 loop._labels.start,
                 loop._labels.end
             ),
-            loop._labels.end
+            new LabelDecl(loop._labels.end)
         ];
     }
     If(stmt) {
@@ -383,24 +383,23 @@ class IRGenerator extends Visitor {
     Assign(assign) {
         const result = new Register(assign._type);
         return Exp.merge(
-            (left, right) => new Exp(result, [
+            (right, left) => new Exp(result, [
                 new Store(left, right),
                 new Load(left).into(result)
             ]),
+            this.visit(assign.right),
             this.addr.visit(assign.left),
-            this.visit(assign.right)
         );
     }
     ExpressionStatement(stmt) {
-        return this.visit(stmt.value)
-            .copyInto(new Register(stmt.value._type));
+        return this.visit(stmt.value).stmts;
     }
     Block(block) {
         return block.stmts.flatMap(stmt => this.visit(stmt));
     }
     Function(fn) {
         const body = [
-            fn._labels.entry,
+            new LabelDecl(fn._labels.entry),
             ...this.visit(fn.body),
             new Return()
         ];
@@ -410,7 +409,10 @@ class IRGenerator extends Visitor {
         return [];
     }
     root(root) {
-        return root.decls.map(decl => this.visit(decl));
+        return [
+            root._entry,
+            ...root.decls.filter(fn => fn !== root._entry)
+        ].map(decl => this.visit(decl));
     }
 }
 
@@ -429,7 +431,7 @@ const assignRegisters = root => {
 const assignLabels = root => {
     root.forEach(AST.Function, fn => {
         fn._labels = {
-            entry: new Label(fn.name)
+            entry: new Label(true, fn.name)
         };
     });
     root.forEach(AST.While, loop => {

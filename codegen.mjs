@@ -461,6 +461,21 @@ class ZEZGenerator {
 
         throw new Error(symExpr);
     }
+    createMemoryWalker(start, kind) {
+        if (start instanceof zez.Literal) {
+            return {
+                init: [],
+                get: i => zez.literal(start.value + i),
+                next: []
+            };
+        }
+
+        return {
+            init: [...zez.setLiteral(this.builtin[kind], start)],
+            get: i => zez.deref(this.builtin[kind]),
+            next: [...zez.addLiteral(this.builtin[kind], zez.literal(1))]
+        };
+    }
     /**
      * Generates the 0=2 AST to copy a given series of 1-register symbolic expressions into a destination address
      * @param {zez.Expression} exprs 
@@ -471,6 +486,10 @@ class ZEZGenerator {
     copyExprs(exprs, destination, noAlias) {
         if (!exprs.length)
             return [];
+        
+        // directly copy values
+        if (exprs.length === 1)
+            return this.safeSetLiteral(destination, exprs[0]);
 
         // copy to intermediate buffer
         if (!noAlias)
@@ -478,21 +497,13 @@ class ZEZGenerator {
                 ...this.copyExprs(exprs, this.builtin.buffer, true),
                 ...this.copyMemory(exprs.length, this.builtin.buffer, destination, true)
             ];
-        
-        // directly copy values
-        if (exprs.length === 1)
-            return zez.setLiteral(destination, exprs[0]);
 
-        const stmts = zez.setLiteral(this.builtin.dst, destination);
+        const dstWalker = this.createMemoryWalker(destination, "dst");
+        const stmts = [...dstWalker.init];
         for (let i = 0; i < exprs.length; i++) {
-            stmts.push(
-                ...zez.setLiteral(new zez.Deref(this.builtin.dst), exprs[i]),
-            );
-            if (i < exprs.length - 1) {
-                stmts.push(
-                    ...zez.addLiteral(this.builtin.dst, new zez.Literal(1))
-                );
-            }
+            stmts.push(...zez.setLiteral(dstWalker.get(i), exprs[i]));
+            if (i < exprs.length - 1)
+                stmts.push(...dstWalker.next);
         }
 
         return stmts;
@@ -554,23 +565,17 @@ class ZEZGenerator {
         }
         
         // perform copy directly
-        const stmts = [
-            ...zez.setLiteral(this.builtin.src, src),
-            ...zez.setLiteral(this.builtin.dst, dst),
-        ];
+        const dstWalker = this.createMemoryWalker(dst, "dst");
+        const srcWalker = this.createMemoryWalker(src, "src");
+        
+        const stmts = [...dstWalker.init, ...srcWalker.init];
+
         for (let i = 0; i < size; i++) {
             stmts.push(
-                ...zez.set(
-                    zez.deref(this.builtin.dst),
-                    zez.deref(this.builtin.src)
-                )
+                ...zez.set(dstWalker.get(i), srcWalker.get(i))
             );
-            if (i < size - 1) {
-                stmts.push(
-                    ...zez.addLiteral(this.builtin.src, zez.literal(1)),
-                    ...zez.addLiteral(this.builtin.dst, zez.literal(1))
-                );
-            }
+            if (i < size - 1)
+                stmts.push(...srcWalker.next, ...dstWalker.next);
         }
 
         return stmts;

@@ -1,29 +1,50 @@
-export class Literal {
+export class Expression {
+    replace(mapping) {
+        return this;
+    }
+    equals(other) {
+        return other instanceof this.constructor;
+    }
+}
+
+export class Literal extends Expression {
     constructor(value) {
+        super();
         this.value = value;
+    }
+    equals(other) {
+        return super.equals(other) && this.value === other.value;
     }
     toString() {
         return String(this.value);
     }
-    replace(mapping) {
-        return this;
-    }
 }
 
-export class Placeholder {
+export class Placeholder extends Expression {
     constructor(key) {
+        super();
         this.key = key;
+    }
+    equals(other) {
+        return super.equals(other) && this.key === other.key;
     }
     replace(mapping) {
         if (mapping.has(this.key))
             return mapping.get(this.key);
         return this;
     }
+    toString() {
+        return `"${this.key}"`;
+    }
 }
 
-export class Operator {
+export class Operator extends Expression {
     constructor(target) {
+        super();
         this.target = target;
+    }
+    equals(other) {
+        return super.equals(other) && this.target.equals(other.target);
     }
     replace(mapping) {
         this.target = this.target.replace(mapping);
@@ -58,6 +79,11 @@ export class Instruction {
         this.dst = this.dst.replace(mapping);
         this.src = this.src.replace(mapping);
     }
+    equals(other) {
+        return  other instanceof Instruction &&
+                this.dst.equals(other.dst) &&
+                this.src.equals(other.src);
+    }
     toString() {
         return `${this.dst} ${this.src}`;
     }
@@ -65,6 +91,9 @@ export class Instruction {
 
 export class Break {
     replace(mapping) { }
+    equals(other) {
+        return other instanceof Break;
+    }
     toString() {
         return "EOL";
     }
@@ -72,6 +101,18 @@ export class Break {
 
 export const ZERO = new Literal(0);
 
+export const deref = a => new Deref(a);
+export const literal = a => new Literal(a);
+export const sign = a => new Sign(a);
+export const negate = a => {
+    if (a instanceof Negate)
+        return a.target;
+    
+    if (a instanceof Literal)
+        return new Literal(-a.value);
+
+    return new Negate(a);
+};
 export const add = (a, b) => {
     return addLiteral(a, new Deref(b));
 };
@@ -112,4 +153,19 @@ export const jump = lineNumberExp => {
         new Instruction(ZERO, new Literal(-1)),
         new Break()
     ];
+};
+export const stringify = instructions => {
+    const lines = [];
+    let line = [];
+    for (const instruction of instructions) {
+        if (instruction instanceof Break) {
+            lines.push(line);
+            line = [];
+        } else {
+            line.push(instruction);
+        }
+    }
+    if (line.length) lines.push(line);
+    
+    return lines.map(line => line.join(" ")).join("\n");
 };

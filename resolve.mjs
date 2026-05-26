@@ -51,7 +51,7 @@ class Resolver extends Visitor {
         if (loop.name && loop.body instanceof AST.Block)
             this.declare(loop, loop.body);
         this.resolveReferences(loop.condition);
-        this.visit(loop.body);
+        this.resolveReferences(loop.body);
         if (loop.continuing) this.resolveReferences(loop.continuing);
     }
     Block(block) {

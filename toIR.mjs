@@ -133,11 +133,11 @@ class JumpGenerator extends Visitor {
     }
     Compare(node) {
         const flipped = Exp.of(
-            Negate, node.right._type,
+            Negate, node.right._targetType,
             this.ir.visit(node.right)
         );
         const diff = Exp.of(
-            Add, node._type,
+            Add, node.right._targetType,
             this.ir.visit(node.left),
             flipped
         );
@@ -167,7 +167,7 @@ class IRGenerator extends Visitor {
     }
     getParamRegister(spec) {
         if (!this.paramRegisters.has(spec))
-            this.paramRegisters.set(spec, new Register(spec.type, true));
+            this.paramRegisters.set(spec, new Register(spec.type, true, `p${spec.index}`));
 
         return this.paramRegisters.get(spec);
     }
@@ -419,12 +419,14 @@ class IRGenerator extends Visitor {
 const assignRegisters = root => {
     root.forEach(AST.Variable, variable => {
         const global = !variable._scope._parent;
-        variable._reg = new Register(variable._type, global);
+        variable._reg = new Register(variable._type, global, variable.name);
     });
 
     root.forEach(AST.Function, fn => {
-        for (let i = 0; i < fn.params.length; i++)
-            fn.params[i]._spec = new ParamSpec(i, fn.params[i]._type);
+        for (let i = 0; i < fn.params.length; i++) {
+            const param = fn.params[i];
+            param._spec = new ParamSpec(i, param._type);
+        }
     });
 };
 

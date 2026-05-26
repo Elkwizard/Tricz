@@ -38,7 +38,7 @@ try {
     });
 
     output ??= path.join(path.dirname(file), path.basename(file, path.extname(file)) + ".zez");
-    // fs.writeFileSync(output, result, "utf-8");
+    fs.writeFileSync(output, result, "utf-8");
 } catch (err) {
     console.error("Fatal Error:", err.stack);
     process.exit(1);

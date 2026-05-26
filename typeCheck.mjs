@@ -332,7 +332,7 @@ class TypeChecker extends Visitor {
             return;
 
         if (expr instanceof AST.Reference) {
-            if (expr._decl instanceof AST.Function)
+            if (expr._decl instanceof AST.Function || expr._decl instanceof AST.Param)
                 expr.error(message);
             return;
         }

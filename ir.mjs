@@ -1,6 +1,9 @@
 import { styleText } from "node:util";
 
 export class Operand {
+    get size() {
+        return 1;
+    }
     /**
      * @returns {Address[]}
      */
@@ -23,11 +26,15 @@ export class Operand {
 
 export class Register extends Operand {
     static id = 0;
-    constructor(type, global = false, id = Register.id++) {
+    constructor(type, global = false, name = null, id = Register.id++) {
         super();
         this.type = type;
         this.global = global;
+        this.name = name;
         this.id = id;
+    }
+    get size() {
+        return this.type.size;
     }
     get registers() {
         return [this];
@@ -35,7 +42,7 @@ export class Register extends Operand {
     toString() {
         return styleText(
             this.global ? "red" : "yellow",
-            `${this.type}$${this.id}`
+            `${this.type}$${this.name ?? this.id}`
         );
     }
     equals(other) {
@@ -81,6 +88,11 @@ export class List extends Operand {
     constructor(elements) {
         super();
         this.elements = elements;
+    }
+    get size() {
+        return this.elements
+            .map(el => el.size)
+            .reduce((a, b) => a + b, 0);
     }
     get registers() {
         return this.elements.flatMap(el => el.registers);

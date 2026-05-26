@@ -463,25 +463,23 @@ class ZEZGenerator {
     }
     /**
      * Generates the 0=2 AST to copy a given series of 1-register symbolic expressions into a destination address
-     * @param {SymbolicExpression} symExprs 
-     * @param {sym.Expression} destination 
+     * @param {zez.Expression} exprs 
+     * @param {zez.Expression} destination 
      * @param {boolean} noAlias 
      * @returns {zez.Instruction[]}
      */
-    copyExprs(symExprs, destination, noAlias) {
-        if (!symExprs.length)
+    copyExprs(exprs, destination, noAlias) {
+        if (!exprs.length)
             return [];
 
         // copy to intermediate buffer
         if (!noAlias)
             return [
-                ...this.copyExprs(symExprs, this.builtin.buffer, true),
-                ...this.copyMemory(symExprs.length, this.builtin.buffer, destination, true)
+                ...this.copyExprs(exprs, this.builtin.buffer, true),
+                ...this.copyMemory(exprs.length, this.builtin.buffer, destination, true)
             ];
         
         // directly copy values
-        const exprs = symExprs.map(expr => this.genExpr(expr));
-
         if (exprs.length === 1)
             return zez.setLiteral(destination, exprs[0]);
 
@@ -506,39 +504,30 @@ class ZEZGenerator {
      * @param {boolean} noAlias
      */
     copyExpr(symExpr, dst, noAlias = false) {
-        // delegate register copy to copyMemory
-        if (
-            symExpr instanceof SymbolicOperand &&
-            symExpr.operand instanceof Register &&
-            symExpr.operand.size > 1
-        ) {
-            const src = this.genExpr(new SymbolicOperand(new Address(symExpr.operand)));
-            return this.copyMemory(symExpr.operand.size, src, dst, noAlias);
-        }
-
         noAlias ||= symExpr.registers.length - symExpr.addresses.length === 0;
 
         // copy list
-        if (
-            symExpr instanceof SymbolicOperand &&
-            symExpr.operand instanceof List
-        ) {
-            const getElements = expr => {
-                if (expr instanceof List)
-                    return expr.elements.flatMap(getElements);
-                return expr;
-            };
-            return this.copyExprs(
-                getElements(symExpr.operand)
-                    .map(element => new SymbolicOperand(element)),
-                dst, noAlias
-            );
+        const getElements = sym => {
+            if (sym instanceof SymbolicOperand) {
+                const { operand } = sym;
+
+                if (operand instanceof List) {
+                    return operand.elements.flatMap(
+                        el => getElements(new SymbolicOperand(el))
+                    );
+                }
+                
+                if (operand instanceof Register) {
+                    const addr = this.addresses.get(operand);
+                    return [...new Array(operand.size).keys()]
+                        .map(i => zez.deref(zez.literal(addr + i)));
+                }
+            }
+
+            return [this.genExpr(sym)];
         }
 
-        return this.copyExprs(
-            [symExpr],
-            dst, noAlias
-        );
+        return this.copyExprs(getElements(symExpr), dst, noAlias);
     }
     /**
      * Returns the 0=2 AST to copy a size-register block of memory from address src to dst.
@@ -572,8 +561,8 @@ class ZEZGenerator {
         for (let i = 0; i < size; i++) {
             stmts.push(
                 ...zez.set(
-                    zez.deref(this.builtin.src),
-                    zez.deref(this.builtin.dst)
+                    zez.deref(this.builtin.dst),
+                    zez.deref(this.builtin.src)
                 )
             );
             if (i < size - 1) {

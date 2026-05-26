@@ -324,8 +324,7 @@ class TypeChecker extends Visitor {
         this.functions.pop();
         this.loops.pop();
 
-        const callable = this.getCallable(fn);
-        fn._recursive = callable.has(fn) || callable.has(null);
+        fn._callable = this.getCallable(fn);
 
         return fn._type;
     }

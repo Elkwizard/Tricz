@@ -1,4 +1,4 @@
-import { Address, Copy, LabelDecl, Load, Store, TAC } from "./ir.mjs";
+import { Address, Copy, Jump, Label, LabelDecl, Load, Return, Store, TAC } from "./ir.mjs";
 
 const simplifyStore = fn => {
     for (let i = 0; i < fn.length; i++) {
@@ -38,9 +38,30 @@ const removeUnusedLabels = fn => {
     }
 };
 
+const removeDeadBlocks = fn => {
+    for (let i = 0; i < fn.length; i++) {
+        const stmt = fn[i];
+        if (stmt instanceof Jump || stmt instanceof Return) {
+            let j = i + 1;
+            while (j < fn.length && !(fn[j] instanceof LabelDecl))
+                j++;
+            
+            let toRemove;
+            if (fn[j] instanceof LabelDecl) {
+                toRemove = j - i - 1;
+            } else {
+                toRemove = j - i;
+            }
+            fn.splice(i + 1, toRemove);
+            i = j - 1;
+        }
+    }
+};
+
 export default function optimize(fn) {
     simplifyStore(fn);
     simplifyLoad(fn);
     removeUnusedLabels(fn);
+    removeDeadBlocks(fn);
     return fn;
 }

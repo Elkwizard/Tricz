@@ -752,7 +752,7 @@ class ZEZGenerator {
     }
     Call(stmt, fn) {
         this.emit(
-            ...zez.set(zez.deref(this.builtin.sp), zez.ZERO),
+            ...zez.setLiteral(zez.deref(this.builtin.sp), zez.literal(this.lineNumber)),
             ...zez.addLiteral(this.builtin.sp, zez.literal(1)),
             ...this.setZeroLiteral(this.genExpr(fn)),
             new zez.Break()

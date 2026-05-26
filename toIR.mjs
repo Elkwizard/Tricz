@@ -164,10 +164,11 @@ class IRGenerator extends Visitor {
         this.jump = new JumpGenerator(this);
         this.returnRegisters = new ValueMap();
         this.paramRegisters = new ValueMap();
+        this.functions = [];
     }
     getParamRegister(spec) {
         if (!this.paramRegisters.has(spec))
-            this.paramRegisters.set(spec, new Register(spec.type, true, `p${spec.index}`));
+            this.paramRegisters.set(spec, new Register(spec.type, true, `param[${spec.index}]`));
 
         return this.paramRegisters.get(spec);
     }
@@ -280,26 +281,43 @@ class IRGenerator extends Visitor {
         return this.addr.visit(node.target);
     }
     Call(node) {
+        const caller = this.functions.at(-1);
+
         // need to save variables
         const result = new Register(node._type, false, "call");
         return Exp.merge(
             (fn, ...args) => {
-                return new Exp(
-                    result,
-                    [
-                        // copy arguments into parameters
-                        ...args.map((arg, i) => {
-                            const paramType = node.fn._type.params[i];
-                            const spec = new ParamSpec(i, paramType);
-                            const reg = this.getParamRegister(spec);
-                            return new Copy(args[i]).into(reg);
-                        }),
-                        // call function
-                        new Call(fn),
-                        // save return value (hopefully elided)
-                        new Copy(this.getReturnRegister(node._type)).into(result)
-                    ]
+                const stmts = [];
+                const saved = [];
+
+                // copy arguments into parameters
+                for (let i = 0; i < args.length; i++) {
+                    const paramType = node.fn._type.params[i];
+                    const spec = new ParamSpec(i, paramType);
+                    const reg = this.getParamRegister(spec);
+
+                    if (args[i] === reg) continue;
+    
+                    if (i < caller.params.length) {
+                        const callerSpec = caller.params[i]._spec;
+                        stmts.push(new Push(reg));
+                        saved.push(reg);
+                    }
+
+                    stmts.push(new Copy(args[i]).into(reg));
+                }
+
+                stmts.push(
+                    // call function
+                    new Call(fn),
+                    // save return value (hopefully elided)
+                    new Copy(this.getReturnRegister(node._type)).into(result)
                 );
+
+                for (let i = saved.length - 1; i >= 0; i--)
+                    stmts.push(new Pop(saved[i]));
+
+                return new Exp(result, stmts);
             },
             this.visit(node.fn),
             ...node.args.map(arg => this.visit(arg))
@@ -401,11 +419,13 @@ class IRGenerator extends Visitor {
         return block.stmts.flatMap(stmt => this.visit(stmt));
     }
     Function(fn) {
+        this.functions.push(fn);
         const body = [
             new LabelDecl(fn._labels.entry),
             ...this.visit(fn.body),
             new Return()
         ];
+        this.functions.pop();
         return body;
     }
     Variable(variable) {

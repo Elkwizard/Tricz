@@ -1,4 +1,4 @@
-import { styleText } from "node:util";
+import { stripVTControlCharacters, styleText } from "node:util";
 
 export class Operand {
     get size() {
@@ -30,7 +30,7 @@ export class Register extends Operand {
         super();
         this.type = type;
         this.global = global;
-        this.name = name;
+        this.name = stripVTControlCharacters(name);
         this.id = id;
     }
     get size() {

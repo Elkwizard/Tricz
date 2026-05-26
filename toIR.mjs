@@ -81,8 +81,8 @@ class AddrGenerator extends Visitor {
     }
     Subscript(node) {
         const elementSize = node._type.size;
-        const product = new Register(PrimitiveType.INT);
-        const sum = new Register(new PointerType(node._type));
+        const product = new Register(PrimitiveType.INT, "[*]");
+        const sum = new Register(new PointerType(node._type), "[+]");
 
         return Exp.merge(
             (arrAddr, index) => new Exp(sum, [
@@ -173,7 +173,7 @@ class IRGenerator extends Visitor {
     }
     getReturnRegister(type) {
         if (!this.returnRegisters.has(type))
-            this.returnRegisters.set(type, new Register(type, true));
+            this.returnRegisters.set(type, new Register(type, true, "return"));
 
         return this.returnRegisters.get(type);
     }
@@ -303,7 +303,7 @@ class IRGenerator extends Visitor {
         );
     }
     Ternary(node) {
-        const result = new Register(node._type);
+        const result = new Register(node._type, false, "?");
 
         return new Exp(result, this.conditional(
             node.condition,
@@ -348,8 +348,8 @@ class IRGenerator extends Visitor {
         }
     }
     Increment(inc) {
-        const result = new Register(inc._type);
-        const temp = new Register(inc._type);
+        const result = new Register(inc._type, false, inc.toString());
+        const temp = new Register(inc._type, false, inc.op);
         const change = inc.op === "++" ? 1 : -1;
         return Exp.merge(
             target => new Exp(result, [
@@ -381,7 +381,7 @@ class IRGenerator extends Visitor {
         return this.visit(cast.target);
     }
     Assign(assign) {
-        const result = new Register(assign._type);
+        const result = new Register(assign._type, "=");
         return Exp.merge(
             (right, left) => new Exp(result, [
                 new Store(left, right),

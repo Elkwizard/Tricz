@@ -1,9 +1,9 @@
-import fs from "node:fs";
 import { findLinearBlocks } from "./cfg.mjs";
 import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, List, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary } from "./ir.mjs";
 import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import * as zez from "./zez.mjs";
 import { stripVTControlCharacters, styleText } from "node:util";
+import exportGraph from "./dot.mjs";
 
 class DependencyGraph {
     constructor() {
@@ -57,16 +57,6 @@ class DependencyGraph {
     }
     getDependencies(node) {
         return this.nodeToDependencies.get(node) ?? new Set();
-    }
-    toString() {
-        let result = "digraph {\n";
-        for (const [node, dependencies] of this.nodeToDependencies) {
-            for (const dependency of dependencies) {
-                result += `"${node}" -> "${dependency}"\n`;
-            }
-        }
-        result += "\n}";
-        return stripVTControlCharacters(result);
     }
 }
 
@@ -188,7 +178,7 @@ class ZEZGenerator {
 
         this.substituteLabels();
 
-        fs.writeFileSync("dependency.dot", this.possibleDeps.toString(), "utf-8");
+        exportGraph(this.possibleDeps.nodeToDependencies, "dependency.dot");
 
         this.optimizeZEZ();
 

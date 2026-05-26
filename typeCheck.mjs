@@ -1,4 +1,5 @@
 import { AST } from "./ast.mjs";
+import exportGraph from "./dot.mjs";
 import { ArrayType, FunctionType, PointerType, PrimitiveType, Type } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 
@@ -6,8 +7,9 @@ import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 class TypeChecker extends Visitor {
     constructor() {
         super();
-        this.returnTypes = [];
+        this.functions = [];
         this.loops = [];
+        this.calls = new Map();
     }
     visit(node) {
         return node._type ??= super.visit(node);
@@ -165,6 +167,12 @@ class TypeChecker extends Visitor {
         return arrType.element;
     }
     Call({ fn, args }) {
+        let callee = fn instanceof AST.Reference ? fn._decl : null;
+        const caller = this.functions.at(-1);
+        if (!this.calls.has(caller))
+            this.calls.set(caller, new Set());
+        this.calls.get(caller).add(callee);
+
         const fnType = this.visit(fn);
 
         if (!(fnType instanceof FunctionType))
@@ -240,7 +248,7 @@ class TypeChecker extends Visitor {
         if (branch.ifFalse) this.visit(branch.ifFalse);
     }
     Return(node) {
-        const returnType = this.returnTypes.at(-1);
+        const returnType = this.functions.at(-1)._type.result;
 
         if (!node.value) {
             if (returnType !== PrimitiveType.VOID)
@@ -263,19 +271,17 @@ class TypeChecker extends Visitor {
         return this.visit(variable.type);
     }
     Function(fn) {
-        this.loops.push(fn);
-
         fn._type = new FunctionType(
             this.visit(fn.result),
             fn.params.map(param => this.visit(param))
         );
 
-        this.returnTypes.push(fn._type.result);
+        this.loops.push(fn);
+        this.functions.push(fn);
 
         this.visit(fn.body);
 
-        this.returnTypes.pop();
-
+        this.functions.pop();
         this.loops.pop();
 
         return fn._type;
@@ -283,6 +289,8 @@ class TypeChecker extends Visitor {
     root({ decls }) {
         for (const decl of decls)
             this.visit(decl);
+
+        exportGraph(this.calls, "calls.dot", true);
     }
     getArithmeticType(node) {
         const type = this.visit(node);

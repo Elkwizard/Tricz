@@ -104,6 +104,11 @@ class Resolver extends Visitor {
             entry.error("Entry point must be a function");
 
         root._entry = entry;
+
+        root.forEach("Reference", ref => {
+            if (ref._decl === root._entry)
+                ref.error("Cannot refer to main function");
+        });
     }
 }
 

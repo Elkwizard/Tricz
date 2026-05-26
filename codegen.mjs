@@ -42,21 +42,42 @@ class DependencyGraph {
         this.nodeToDependencies.clear();
         this.nodeToDependents.clear();
     }
-    clearDependencies(node) {
-        for (const dependency of this.getDependencies(node))
+    delete(node) {
+        const dependencies = [...this.getDependencies(node)];
+        const dependents = [...this.getDependents(node)];
+
+        for (const dependency of dependencies)
             this.nodeToDependents.get(dependency).delete(node);
-        this.nodeToDependencies.delete(node);
-    }
-    clearDependents(node) {
-        for (const dependent of this.getDependents(node))
+
+        for (const dependent of dependents)
             this.nodeToDependencies.get(dependent).delete(node);
+
+        this.nodeToDependencies.delete(node);
         this.nodeToDependents.delete(node);
     }
+    // clearDependencies(node) {
+    //     for (const dependency of this.getDependencies(node))
+    //         this.nodeToDependents.get(dependency).delete(node);
+    //     this.nodeToDependencies.delete(node);
+    // }
+    // clearDependents(node) {
+    //     for (const dependent of this.getDependents(node))
+    //         this.nodeToDependencies.get(dependent).delete(node);
+    //     this.nodeToDependents.delete(node);
+    // }
     getDependents(node) {
         return this.nodeToDependents.get(node) ?? new Set();
     }
     getDependencies(node) {
         return this.nodeToDependencies.get(node) ?? new Set();
+    }
+    toString() {
+        return [
+            ...[...this.nodeToDependencies]
+                .flatMap(([node, dependencies]) => [...dependencies].map(
+                    dependency => `${node} -> ${dependency}`
+                ))
+        ].map(line => `  ${line}`).join("\n");
     }
 }
 
@@ -271,14 +292,14 @@ class ZEZGenerator {
         return new SymbolicOperand(operand);
     }
     alterAll() {
-        console.log("ALTER ALL");
+        console.log("  ALTER ALL");
         this.knownRegisters.clear();
         this.definiteDeps.clear();
     }
     alter(register) {
         const dependents = [...this.definiteDeps.getDependents(register)];
-        console.log(`ALTER ${register}, DEPENDED ON BY [${dependents.join(", ")}]`);
-        this.definiteDeps.clearDependents(register);
+        console.log(`  ALTER ${register}, DEPENDED ON BY [${dependents.join(", ")}]`);
+        this.definiteDeps.delete(register);
         this.knownRegisters.delete(register);
         for (const dependent of dependents)
             this.alter(dependent);
@@ -292,8 +313,9 @@ class ZEZGenerator {
         this.alterAll();
 
         for (const stmt of block) {
-            console.log(stmt.toString());
-            console.log(`KNOWN ${[...this.knownRegisters].map(([key, value]) => `${key} => ${value}`).join(", ")}`);
+            console.log("\n" + stmt.toString());
+            console.log(`  KNOWN ${[...this.knownRegisters].map(([key, value]) => `${key} => ${value}`).join(", ")}`);
+            console.log(`  DEFINITE DEPENDENCIES\n${this.definiteDeps}`);
 
             const resolution = new Map();
 
@@ -302,6 +324,8 @@ class ZEZGenerator {
                 const resolved = this.resolveOperand(stmt.src, true);
                 resolution.set(stmt.src, resolved);
             }
+
+            const newDependencies = [];
 
             for (const read of stmt.reads) {
                 // other instructions can only allow unary operators
@@ -312,7 +336,7 @@ class ZEZGenerator {
 
                 for (const register of resolved.registers) {
                     if (stmt instanceof TAC) {
-                        this.definiteDeps.addDependency(stmt.dst, register);
+                        newDependencies.push(register);
                         this.possibleDeps.addDependency(stmt.dst, register);
                     } else {
                         this.possibleDeps.addDependency(null, register);
@@ -352,6 +376,8 @@ class ZEZGenerator {
                 }
 
                 this.alter(dst);
+                for (const dep of newDependencies)
+                    this.definiteDeps.addDependency(dst, dep);
                 if (expr && !expr.registers.includes(dst))
                     this.knownRegisters.set(dst, expr);
             } else if (stmt instanceof Store) {

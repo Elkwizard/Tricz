@@ -149,9 +149,6 @@ class ZEZGenerator {
         this.protectIndirections();
 
         const blocks = findLinearBlocks(this.stmts);
-        
-        for (const block of blocks)
-            console.log("\n\n" + block.join("\n"));
 
         // resolve all operands by collapsing multi-instruction sequences into efficient 0=2 expressions
         this.knownRegisters = new Map();
@@ -792,22 +789,8 @@ class ZEZGenerator {
 }
 
 export default function codegen(fns) {
-    // const reg = new Register(PrimitiveType.INT, true);
-    // const reg2 = new Register(PrimitiveType.INT, true);
-    // const label = new Label();
-    // const arrReg = new Register(new ArrayType(new ArrayType(PrimitiveType.INT, 2), 2));
     const generator = new ZEZGenerator([
         new Push(new Constant(-2)),
-        // new Negate(new Constant(1)).into(reg),
-        // new Negate(reg).into(reg),
-        // new LabelDecl(label),
-        // new Negate(reg).into(reg2),
-        // new CompareJump(reg, "<", label),
-        // new Push(new List([
-        //     new List([new Constant(3), new Constant(-1)]),
-        //     new List([new Constant(2), reg2])
-        // ])),
-        // new Pop(arrReg),
         ...fns.flat()
     ]);
 

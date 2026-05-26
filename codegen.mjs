@@ -472,8 +472,9 @@ class ZEZGenerator {
             return [];
 
         // directly copy values
-        if (exprs.length === 1)
+        if (exprs.length === 1) {
             return this.safeSetLiteral(destination, exprs[0]);
+        }
 
         // copy to intermediate buffer
         if (!noAlias)
@@ -599,7 +600,7 @@ class ZEZGenerator {
         return this.mightAlias(1, a, b);
     }
     safeSetLiteral(dst, src, noAlias = false) {
-        noAlias ||= !this.mightAliasValues(zez.deref(src), dst);
+        noAlias ||= !this.mightAliasValues(zez.deref(dst), src);
 
         if (!noAlias)
             return [

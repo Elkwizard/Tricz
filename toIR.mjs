@@ -281,10 +281,11 @@ class IRGenerator extends Visitor {
     }
     Call(node) {
         // need to save variables
+        const result = new Register(node._type, false, "call");
         return Exp.merge(
             (fn, ...args) => {
                 return new Exp(
-                    this.getReturnRegister(node._type),
+                    result,
                     [
                         // copy arguments into parameters
                         ...args.map((arg, i) => {
@@ -294,7 +295,9 @@ class IRGenerator extends Visitor {
                             return new Copy(args[i]).into(reg);
                         }),
                         // call function
-                        new Call(fn)
+                        new Call(fn),
+                        // save return value (hopefully elided)
+                        new Copy(this.getReturnRegister(node._type)).into(result)
                     ]
                 );
             },

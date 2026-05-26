@@ -203,7 +203,7 @@ class IRGenerator extends Visitor {
             ...this.jump.visit(condition, ifLabel, elseLabel),
             new LabelDecl(ifLabel),
             ...ifTrue,
-            new Jump(elseLabel),
+            new Jump(endLabel),
             new LabelDecl(elseLabel),
             ...ifFalse,
             new LabelDecl(endLabel)

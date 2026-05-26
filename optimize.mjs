@@ -216,7 +216,6 @@ const removeStupidJumps = fn => {
 
         if (seen.has(label)) {
             fn.splice(i, 1);
-            console.log("removed " + label);
             i--;
         }
     }

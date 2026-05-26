@@ -25,6 +25,7 @@ export default function compile(source, config) {
     const ir = toIR(root, config);
     const optimized = ir.map(optimize);
     console.log(optimized.map(fn => fn.join("\n")).join("\n\n"));
+    // return;
     let zez = codegen(optimized);
     console.log(zez.length);
     zez = optimizeZEZ(zez);

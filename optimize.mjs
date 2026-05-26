@@ -3,7 +3,11 @@ import { Address, Copy, Jump, Label, LabelDecl, Load, Return, Store, TAC } from 
 const simplifyStore = fn => {
     for (let i = 0; i < fn.length; i++) {
         const stmt = fn[i];
-        if (stmt instanceof Store && stmt.addr instanceof Address) {
+        if (
+            stmt instanceof Store &&
+            stmt.addr instanceof Address &&
+            stmt.addr.register.size === stmt.src.size
+        ) {
             fn[i] = new Copy(stmt.src).into(stmt.addr.register);
         }
     }
@@ -15,7 +19,8 @@ const simplifyLoad = fn => {
         if (
             stmt instanceof TAC &&
             stmt.src instanceof Load &&
-            stmt.src.target instanceof Address
+            stmt.src.target instanceof Address &&
+            stmt.dst.size === stmt.src.target.register.size
         ) {
             fn[i] = new Copy(stmt.src.target.register).into(stmt.dst);
         }

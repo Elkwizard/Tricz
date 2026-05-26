@@ -149,6 +149,9 @@ class ZEZGenerator {
         this.protectIndirections();
 
         const blocks = findLinearBlocks(this.stmts);
+        
+        for (const block of blocks)
+            console.log("\n\n" + block.join("\n"));
 
         // resolve all operands by collapsing multi-instruction sequences into efficient 0=2 expressions
         this.knownRegisters = new Map();
@@ -347,9 +350,9 @@ class ZEZGenerator {
                 } else if (src instanceof Binary) {
                     expr = new SymbolicOperator(
                         src.constructor, [
-                        resolution.get(src.a),
-                        resolution.get(src.b)
-                    ]
+                            resolution.get(src.a),
+                            resolution.get(src.b)
+                        ]
                     );
                 }
 

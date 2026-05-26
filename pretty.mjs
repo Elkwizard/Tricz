@@ -15,6 +15,9 @@ class PrettyPrinter extends Visitor {
         if (this.decor) {
             if (node._recursive)
                 this.print(styleText("red", "recursive "));
+
+            if (node._indirect)
+                this.print(styleText("red", "indirect "));
         }
 
         super.visit(node);

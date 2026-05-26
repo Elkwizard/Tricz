@@ -29,7 +29,6 @@ if (positionals.length !== 1) {
 }
 
 try {
-    console.log(fixedPrecision);
     const file = positionals[0];
     const source = fs.readFileSync(file, "utf-8");
     const result = compile(source, {

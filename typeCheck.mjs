@@ -75,6 +75,13 @@ class TypeChecker extends Visitor {
         const { _decl } = node;
         if (_decl instanceof AST.While)
             node.error(`Cannot refer to loop label as an expression`);
+
+        // if called directly, the reference is never visited
+        if (node._decl instanceof AST.Function) {
+            this.addCall(null, node._decl);
+            node._decl._indirect = true;
+        }
+
         return this.visit(node._decl);
     }
     AddressOf(node) {
@@ -166,14 +173,25 @@ class TypeChecker extends Visitor {
             
         return arrType.element;
     }
-    Call({ fn, args }) {
-        let callee = fn instanceof AST.Reference ? fn._decl : null;
-        const caller = this.functions.at(-1);
+    addCall(caller, callee) {
         if (!this.calls.has(caller))
             this.calls.set(caller, new Set());
         this.calls.get(caller).add(callee);
+    }
+    Call(call) {
+        const { fn, args } = call;
 
-        const fnType = this.visit(fn);
+        let fnType;
+        const caller = this.functions.at(-1);
+        call._indirect = !(fn instanceof AST.Reference && fn._decl instanceof AST.Function);
+        if (call._indirect) {
+            this.addCall(caller, null);
+            fnType = this.visit(fn);
+        } else {
+            this.addCall(caller, fn._decl);
+            fnType = this.visit(fn._decl);
+            fn._type = fnType;
+        }
 
         if (!(fnType instanceof FunctionType))
             fn.error(`Cannot call non-function type '${fnType}'`);

@@ -1,9 +1,9 @@
 import { styleText } from "node:util";
 import { AST } from "./ast.mjs";
-import { PointerType, PrimitiveType } from "./types.mjs";
+import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.mjs";
-import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl } from "./ir.mjs";
+import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop } from "./ir.mjs";
 
 const { make } = AST;
 
@@ -51,7 +51,7 @@ class Exp {
     }
     // applies a three address code to some number of expressions
     static of(Instruction, type, ...exps) {
-        const temp = new Register(type);
+        const temp = new Register(type, false, Instruction.name);
         return Exp.merge(
             (...values) => new Exp(temp, [
                 new Instruction(...values).into(temp)
@@ -81,8 +81,8 @@ class AddrGenerator extends Visitor {
     }
     Subscript(node) {
         const elementSize = node._type.size;
-        const product = new Register(PrimitiveType.INT, "[*]");
-        const sum = new Register(new PointerType(node._type), "[+]");
+        const product = new Register(PrimitiveType.INT, false, "[*]");
+        const sum = new Register(new PointerType(node._type), false, "[+]");
 
         return Exp.merge(
             (arrAddr, index) => new Exp(sum, [
@@ -381,7 +381,7 @@ class IRGenerator extends Visitor {
         return this.visit(cast.target);
     }
     Assign(assign) {
-        const result = new Register(assign._type, "=");
+        const result = new Register(assign._type, false, "=");
         return Exp.merge(
             (right, left) => new Exp(result, [
                 new Store(left, right),

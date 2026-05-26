@@ -1,0 +1,7 @@
+void print(int x) {
+    @(-1 as &int) += x;
+}
+
+int read() {
+    return @(-2 as &int);
+}

@@ -1,13 +1,11 @@
-int read() {
-    return @(-2 as &int);
-}
+include "stdlib";
 
 int main() {
     int value = read();
     value = value * 231840;
     int notValue = value * 8736;
-    @(-1 as &int) += notValue;
-    @(-1 as &int) += value;
+    print(notValue);
+    print(value);
     // int odd = value * 30;
     // @(-1 as &int) += odd;
 }

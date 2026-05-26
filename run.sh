@@ -1,3 +1,4 @@
+set -e
 ./grammar/compile.sh
 node tricz.mjs test/$1.tricz -o test/$1.zez
 if [ $2 == run ]; then

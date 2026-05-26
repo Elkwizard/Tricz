@@ -11,9 +11,7 @@ import toIR from "./toIR.mjs";
 import typeCheck from "./typeCheck.mjs";
 import { stringify } from "./zez.mjs";
 
-export default function compile(source, config) {
-    let root = parse(source, { filename: config.filename });
-    root = clean(root);
+export default function compile(root, config) {
     root = lower(root);
     console.log(prettyPrint(root));
     root = resolveReferences(root);

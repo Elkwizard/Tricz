@@ -2,6 +2,7 @@ import util from "node:util";
 import compile from "./compile.mjs";
 import path from "node:path";
 import fs from "node:fs";
+import resolveIncludes from "./includes.mjs";
 
 const {
     values: {
@@ -30,10 +31,9 @@ if (positionals.length !== 1) {
 
 try {
     const file = positionals[0];
-    const source = fs.readFileSync(file, "utf-8");
-    const result = compile(source, {
-        filename: file,
-        fixedPrecision: +(fixedPrecision ?? "10")
+    const root = resolveIncludes(file);
+    const result = compile(root, {
+        fixedPrecision: +(fixedPrecision ?? "3")
     });
 
     output ??= path.join(path.dirname(file), path.basename(file, path.extname(file)) + ".zez");

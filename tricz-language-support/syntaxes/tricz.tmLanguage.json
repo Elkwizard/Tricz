@@ -90,10 +90,6 @@
 			"name": "constant.numeric",
 			"match": "\\d+(.\\d+)?"
 		},
-		"includes": {
-			"name": "string.quoted.double",
-			"match": "(?<=\\binclude\\s+).+?;"
-		},
 		"identifiers": {
 			"patterns": [{
 				"name": "support.variable.property",

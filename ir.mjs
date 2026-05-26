@@ -42,7 +42,7 @@ export class Register extends Operand {
     toString() {
         return styleText(
             this.global ? "red" : "yellow",
-            `${this.type}$${this.name ?? this.id}`
+            `${this.type}$${this.name ?? ""}${this.id}`
         );
     }
     equals(other) {

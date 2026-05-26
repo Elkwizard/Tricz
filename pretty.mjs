@@ -12,6 +12,11 @@ class PrettyPrinter extends Visitor {
         this.printer = new IndentedPrinter(4);
     }
     visit(node) {
+        if (this.decor) {
+            if (node._recursive)
+                this.print(styleText("red", "recursive "));
+        }
+
         super.visit(node);
 
         if (this.decor) {

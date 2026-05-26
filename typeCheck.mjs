@@ -270,6 +270,28 @@ class TypeChecker extends Visitor {
     Variable(variable) {
         return this.visit(variable.type);
     }
+    getCallable(fn) {
+        const found = new Set();
+        let toExplore = new Set([fn]);
+
+        while (toExplore.size) {
+            const toExploreNext = new Set();
+
+            for (const root of toExplore) {
+                const neighbors = this.calls.get(root) ?? new Set();
+                for (const neighbor of neighbors) {
+                    if (!found.has(neighbor)) {
+                        found.add(neighbor);
+                        toExploreNext.add(neighbor);
+                    }
+                }
+            }
+
+            toExplore = toExploreNext;
+        }
+
+        return found;
+    }
     Function(fn) {
         fn._type = new FunctionType(
             this.visit(fn.result),
@@ -283,6 +305,9 @@ class TypeChecker extends Visitor {
 
         this.functions.pop();
         this.loops.pop();
+
+        const callable = this.getCallable(fn);
+        fn._recursive = callable.has(fn) || callable.has(null);
 
         return fn._type;
     }

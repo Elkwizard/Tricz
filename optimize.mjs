@@ -1,4 +1,4 @@
-import { Add, Address, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Register, Return, Store, TAC } from "./ir.mjs";
+import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Register, Return, Store, TAC } from "./ir.mjs";
 import { PrimitiveType } from "./types.mjs";
 
 const simplifyStore = fn => {
@@ -201,7 +201,29 @@ const factorProducts = fn => {
     }
 };
 
+const removeStupidJumps = fn => {
+    for (let i = 0; i < fn.length; i++) {
+        const stmt = fn[i];
+        if (!(stmt instanceof Jump || stmt instanceof CompareJump))
+            continue;
+
+        const { label } = stmt;
+
+        const seen = new Set();
+
+        for (let j = i + 1; fn[j] instanceof LabelDecl; j++)
+            seen.add(fn[j].label);
+
+        if (seen.has(label)) {
+            fn.splice(i, 1);
+            console.log("removed " + label);
+            i--;
+        }
+    }
+};
+
 export default function optimize(fn) {
+    removeStupidJumps(fn);
     simplifyStore(fn);
     simplifyLoad(fn);
     removeUnusedLabels(fn);

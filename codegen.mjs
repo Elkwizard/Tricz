@@ -180,9 +180,7 @@ class ZEZGenerator {
 
         exportGraph(this.possibleDeps.nodeToDependencies, "dependency.dot");
 
-        this.optimizeZEZ();
-
-        return zez.stringify(this.instructions);
+        return this.instructions;
     }
     locateSymbols() {
         this.labels = new Set();
@@ -347,9 +345,9 @@ class ZEZGenerator {
                 } else if (src instanceof Binary) {
                     expr = new SymbolicOperator(
                         src.constructor, [
-                            resolution.get(src.a),
-                            resolution.get(src.b)
-                        ]
+                        resolution.get(src.a),
+                        resolution.get(src.b)
+                    ]
                     );
                 }
 
@@ -416,17 +414,6 @@ class ZEZGenerator {
         }
     }
     /**
-     * Generates the 0=2 AST to copy an n-register value from address `src` to address `dst`.
-     * @param {number} size
-     * @param {zez.Expression} src
-     * @param {zez.Expression} dst
-     * @returns {zez.Instruction[]}
-     */
-    copy(size, src, dst) {
-        if (size === 1)
-            return zez.setLiteral
-    }
-    /**
      * Generates the 0=2 AST for a given single-register symbolic expression
      * @param {SymbolicExpression} symExpr 
      */
@@ -483,7 +470,7 @@ class ZEZGenerator {
     copyExprs(exprs, destination, noAlias) {
         if (!exprs.length)
             return [];
-        
+
         // directly copy values
         if (exprs.length === 1)
             return this.safeSetLiteral(destination, exprs[0]);
@@ -524,7 +511,7 @@ class ZEZGenerator {
                         el => getElements(new SymbolicOperand(el))
                     );
                 }
-                
+
                 if (operand instanceof Register) {
                     const addr = this.addresses.get(operand);
                     return [...new Array(operand.size).keys()]
@@ -550,7 +537,7 @@ class ZEZGenerator {
 
         if (size === 1)
             return this.safeSetLiteral(dst, zez.deref(src), noAlias);
-        
+
         noAlias ||= !this.mightAlias(size, src, dst);
 
         if (!noAlias) {
@@ -560,11 +547,11 @@ class ZEZGenerator {
                 ...this.copyMemory(size, this.builtin.buffer, dst, true)
             ];
         }
-        
+
         // perform copy directly
         const dstWalker = this.createMemoryWalker(dst, "dst");
         const srcWalker = this.createMemoryWalker(src, "src");
-        
+
         const stmts = [...dstWalker.init, ...srcWalker.init];
 
         for (let i = 0; i < size; i++) {
@@ -613,13 +600,13 @@ class ZEZGenerator {
     }
     safeSetLiteral(dst, src, noAlias = false) {
         noAlias ||= !this.mightAliasValues(zez.deref(src), dst);
-        
+
         if (!noAlias)
             return [
                 ...zez.setLiteral(this.builtin.buffer, src),
                 ...zez.set(dst, this.builtin.buffer)
             ];
-        
+
         return zez.setLiteral(dst, src);
 
     }
@@ -687,6 +674,12 @@ class ZEZGenerator {
             );
         }
     }
+    setZeroLiteral(value) {
+        return [
+            ...zez.addLiteral(zez.ZERO, zez.literal(-this.lineNumber)),
+            ...zez.addLiteral(zez.ZERO, value)
+        ];
+    }
     CompareJump(stmt, value, label) {
         let { compare } = stmt;
 
@@ -724,43 +717,35 @@ class ZEZGenerator {
             new zez.Break()
         );
 
-        const jump = zez.setLiteral(zez.ZERO, label);
+        const jump = () => this.setZeroLiteral(label);
         const nop = zez.addLiteral(zez.ZERO, zez.literal(0));
         const skip = zez.addLiteral(zez.ZERO, zez.literal(1));
 
         switch (stmt.compare) {
             case ">":
             case "<": {
-                this.emit(
-                    ...jump, new zez.Break(),
-                    ...nop, new zez.Break()
-                );
+                this.emit(...jump(), new zez.Break());
+                this.emit(...nop, new zez.Break());
             }; break;
             case ">=":
             case "<=": {
-                this.emit(
-                    ...jump, new zez.Break(),
-                    ...jump, new zez.Break()
-                );
+                this.emit(...jump(), new zez.Break());
+                this.emit(...jump(), new zez.Break());
             }; break;
             case "==": {
-                this.emit(
-                    ...skip, new zez.Break(),
-                    ...jump, new zez.Break()
-                );
+                this.emit(...skip, new zez.Break(),);
+                this.emit(...jump(), new zez.Break());
             }; break;
             case "!=": {
-                this.emit(
-                    ...jump, new zez.Break(),
-                    ...skip, new zez.Break(),
-                    ...jump, new zez.Break()
-                );
+                this.emit(...jump(), new zez.Break());
+                this.emit(...skip, new zez.Break());
+                this.emit(...jump(), new zez.Break());
             }; break;
         }
     }
     Jump(stmt, label) {
         this.emit(
-            ...zez.setLiteral(zez.ZERO, this.genExpr(label)),
+            ...this.setZeroLiteral(this.genExpr(label)),
             new zez.Break()
         );
     }
@@ -768,23 +753,20 @@ class ZEZGenerator {
         this.emit(
             ...zez.set(zez.deref(this.builtin.sp), zez.ZERO),
             ...zez.addLiteral(this.builtin.sp, zez.literal(1)),
-            ...zez.setLiteral(zez.ZERO, this.genExpr(fn)),
+            ...this.setZeroLiteral(this.genExpr(fn)),
             new zez.Break()
         );
     }
     Return(stmt) {
         this.emit(
             ...zez.addLiteral(this.builtin.sp, zez.literal(-1)),
-            ...zez.set(zez.ZERO, zez.deref(this.builtin.sp)),
+            ...this.setZeroLiteral(zez.deref(zez.deref(this.builtin.sp))),
             new zez.Break()
         );
     }
     substituteLabels() {
         for (const instruction of this.instructions)
             instruction.replace(this.labelLines);
-    }
-    optimizeZEZ() {
-
     }
 }
 

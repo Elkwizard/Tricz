@@ -1,0 +1,15 @@
+int read() {
+    return @(-2 as &int);
+}
+
+void print(int x) {
+    @(-1 as &int) += x;
+}
+
+void main() {
+    print((read() < 3 ? read() : 3) + read());
+}
+
+// void main() {
+//     print(1 < 3 ? 4 : 5);
+// }

@@ -175,6 +175,7 @@ const foldExpression = (() => {
         
         Divide(a, Constant(1)) ,_=> new Copy(_.a),
         Divide(a, Constant(-1)) ,_=> new Negate(_.a),
+        Divide(Constant(x), Constant(y)) ,_=> new Copy(new Constant(Math.trunc(_.x / _.y))),
         
         Negate(Constant(x)) ,_=> new Copy(new Constant(-_.x)),
     ];

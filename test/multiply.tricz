@@ -2,7 +2,7 @@ include "stdlib";
 
 int main() {
     int value = read();
-    value = value * 231840;
+    value = value * -231840;
     int notValue = value * 8736;
     print(notValue);
     print(value);

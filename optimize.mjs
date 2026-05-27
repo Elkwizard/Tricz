@@ -91,11 +91,9 @@ const factorProducts = fn => {
         const temp = new Register(PrimitiveType.INT, false, "temp*");
 
         // perform factorization
-        let factor = a.value;
+        let factor = Math.abs(a.value);
         
-        const stmts = [
-            new Copy(b).into(result)
-        ];
+        const stmts = [(a.value > 0 ? new Copy(b) : new Negate(b)).into(result)];
 
         for (let n = 2; factor > 1; n++) {
             while (factor % n === 0) {
@@ -279,12 +277,14 @@ const removeDeadAssignments = fn => {
 
 export default function optimize(fn) {
     removeStupidJumps(fn);
-    simplifyStore(fn);
-    simplifyLoad(fn);
-    removeUnusedLabels(fn);
-    removeDeadBlocks(fn);
-    propagateAndFold(fn);
-    factorProducts(fn);
+    for (let n = 0; n < 2; n++) {
+        simplifyStore(fn);
+        simplifyLoad(fn);
+        removeUnusedLabels(fn);
+        removeDeadBlocks(fn);
+        propagateAndFold(fn);
+        factorProducts(fn);
+    }
     removeDeadAssignments(fn);
     return fn;
 }

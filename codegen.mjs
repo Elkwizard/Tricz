@@ -181,15 +181,17 @@ class ZEZGenerator {
     resolveDependencies(block) {
         this.stateTracker.alterAll();
         
-        console.log("=== BEGIN ===");
         for (const stmt of block) {
-            const resolution = this.stateTracker.handleStatement(
-                stmt, this.createSpecializedExpression.bind(this)
+            const wideReads = new Set();
+            if (stmt instanceof Store) wideReads.add(stmt.src);
+            const resolution = this.stateTracker.resolveStatement(stmt, wideReads);
+
+            this.stateTracker.handleStatement(
+                stmt, resolution, this.createSpecializedExpression.bind(this)
             );
 
             this.resolutions.set(stmt, resolution);
         }
-        console.log("=== END ===\n\n");
     }
     generateSetup() {
         this.emit(

@@ -1,11 +1,15 @@
+import config from "./config.mjs";
 import { DependencyGraph } from "./dependency.mjs";
-import { Binary, Copy, Load, Negate, Operand, Pop, Store, TAC, Unary } from "./ir.mjs";
+import { Binary, Branch, Copy, LabelDecl, Load, Negate, Operand, Pop, Store, TAC, Unary } from "./ir.mjs";
 
 export class IRStateTracker {
     constructor() {
         this.definiteDeps = new DependencyGraph();
         this.possibleDeps = new DependencyGraph();
         this.knownRegisters = new Map();
+    }
+    get hasLogging() {
+        return config.log?.stateTracking;
     }
     addNecessary(register) {
         this.possibleDeps.addDependency(null, register);
@@ -26,13 +30,15 @@ export class IRStateTracker {
         return new SymbolicOperand(operand);
     }
     alterAll() {
-        console.log("  ALTER ALL");
+        if (this.hasLogging)
+            console.log("  ALTER ALL");
         this.knownRegisters.clear();
         this.definiteDeps.clear();
     }
     alter(register) {
         const dependents = [...this.definiteDeps.getDependents(register)];
-        console.log(`  ALTER ${register}, DEPENDED ON BY [${dependents.join(", ")}]`);
+        if (this.hasLogging)
+            console.log(`  ALTER ${register}, DEPENDED ON BY [${dependents.join(", ")}]`);
         this.definiteDeps.delete(register);
         this.knownRegisters.delete(register);
         for (const dependent of dependents)
@@ -40,31 +46,40 @@ export class IRStateTracker {
     }
     /**
      * @param {Statement} stmt
-     * @param {(src: Unary | Binary) => SymbolicExpression | null} createSpecializedExpression
+     * @param {Set<Operand>} wideReads
      */
-    handleStatement(stmt, createSpecializedExpression = () => null) {
-        console.log("\n" + stmt.toString());
-        console.log(`  KNOWN ${[...this.knownRegisters].map(([key, value]) => `${key} => ${value}`).join(", ")}`);
-        console.log(`  DEFINITE DEPENDENCIES\n${this.definiteDeps}`);
+    resolveStatement(stmt, wideReads = new Set()) {
+        if (this.hasLogging) {
+            console.log("\n" + stmt.toString());
+            console.log(`  KNOWN ${[...this.knownRegisters].map(([key, value]) => `${key} => ${value}`).join(", ")}`);
+            console.log(`  DEFINITE DEPENDENCIES\n${this.definiteDeps}`);
+        }
 
         const resolution = new Map();
 
-        if (stmt instanceof Store) {
-            // stores can allow more complex inputs
-            const resolved = this.resolveOperand(stmt.src, true);
-            resolution.set(stmt.src, resolved);
-        }
-
-        const newDependencies = [];
+        // some instruction slots can allow full binary operators
+        for (const read of wideReads)
+            resolution.set(read, this.resolveOperand(read, true));
 
         for (const read of stmt.reads) {
-            // other instructions can only allow unary operators
+            // most instructions can only allow unary operators
             if (!resolution.has(read))
                 resolution.set(read, this.resolveOperand(read, false));
 
             const resolved = resolution.get(read);
+        }
 
-            for (const register of resolved.registers) {
+        return resolution;
+    }
+    /**
+     * @param {Statement} stmt
+     * @param {(src: Unary | Binary) => SymbolicExpression | null} createSpecializedExpression
+     */
+    handleStatement(stmt, resolution, createSpecializedExpression = () => null) {
+        const newDependencies = [];
+
+        for (const { registers } of resolution.values()) {
+            for (const register of registers) {
                 if (stmt instanceof TAC) {
                     newDependencies.push(register);
                     this.possibleDeps.addDependency(stmt.dst, register);
@@ -103,14 +118,12 @@ export class IRStateTracker {
                 this.definiteDeps.addDependency(dst, dep);
             if (expr && !expr.registers.includes(dst))
                 this.knownRegisters.set(dst, expr);
-        } else if (stmt instanceof Store) {
+        } else if (stmt instanceof Store || stmt instanceof Branch || stmt instanceof LabelDecl) {
             this.alterAll();
         } else if (stmt instanceof Pop) {
             this.alter(stmt.value);
             this.possibleDeps.addDependency(null, stmt.value);
         }
-
-        return resolution;
     }
 }
 

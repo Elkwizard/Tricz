@@ -1,4 +1,6 @@
-import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Register, Return, Store, TAC } from "./ir.mjs";
+import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Push, Register, Return, StackOperation, Store, TAC, Unary } from "./ir.mjs";
+import { IRStateTracker, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
+import { $ } from "./pattern.mjs";
 import { PrimitiveType } from "./types.mjs";
 
 const simplifyStore = fn => {
@@ -64,34 +66,7 @@ const removeDeadBlocks = fn => {
     }
 };
 
-
-const foldConstants = fn => {
-    const folds = {
-        Add: (a, b) => a + b,
-        Negate: a => -a,
-        Divide: (a, b) => Math.trunc(a / b),
-        Multiply: (a, b) => a * b,
-        Remainder: (a, b) => a % b
-    };
-
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
-
-        if (!(stmt instanceof TAC)) continue;
-
-        const { dst, src } = stmt;
-
-        const fold = folds[src.constructor.name];
-        if (fold && src.reads.every(read => read instanceof Constant)) {
-            const result = new Constant(fold(
-                ...src.reads.map(read => read.value)
-            ));
-            fn[i] = new Copy(result).into(dst);
-        }
-    }
-};
-
-const getCommutativeOperands = ({ a, b }) => {
+export const orderCommutativeOperands = ([a, b]) => {
     if (a instanceof Constant)
         return [a, b];
 
@@ -101,52 +76,13 @@ const getCommutativeOperands = ({ a, b }) => {
     return [a, b];
 };
 
-const foldIdentities = fn => {
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
-
-        if (!(stmt instanceof TAC)) continue;
-
-        const { dst, src } = stmt;
-
-        if (src instanceof Add) {
-            const [a, b] = getCommutativeOperands(src);
-            if (a instanceof Constant) {
-                if (a.value === 0) {
-                    fn[i] = new Copy(b).into(dst);
-                }
-            }
-        } else if (src instanceof Multiply) {
-            const [a, b] = getCommutativeOperands(src);
-            if (a instanceof Constant) {
-                if (a.value === 0) {
-                    fn[i] = new Copy(a).into(dst);
-                } else if (a.value === 1) {
-                    fn[i] = new Copy(b).into(dst);
-                } else if (a.value === -1) {
-                    fn[i] = new Negate(b).into(dst);
-                }
-            }
-        } else if (src instanceof Divide) {
-            const { a, b } = src;
-            if (b instanceof Constant) {
-                if (b.value === 1) {
-                    fn[i] = new Copy(a).into(dst);
-                } else if (b.value === -1) {
-                    fn[i] = new Negate(a).into(dst);
-                }
-            }
-        }
-    }
-};
-
 const factorProducts = fn => {
     for (let i = 0; i < fn.length; i++) {
         const stmt = fn[i];
         if (!(stmt instanceof TAC)) continue;
         const { dst, src } = stmt;
         if (!(src instanceof Multiply)) continue;
-        const [a, b] = getCommutativeOperands(src);
+        const [a, b] = orderCommutativeOperands([src.a, src.b]);
         if (!(a instanceof Constant)) continue;
         if (b === a) continue;
 
@@ -221,14 +157,139 @@ const removeStupidJumps = fn => {
     }
 };
 
+$.register(Add, orderCommutativeOperands);
+$.register(Multiply, orderCommutativeOperands);
+$.register(Constant);
+$.register(Divide);
+$.register(Negate);
+
+const foldExpression = (() => {
+    const { Add, Multiply, Divide, Negate, Constant, x, y, a } = $;
+
+    const patterns = [
+        Add(Constant(x), Constant(y)) ,_=> new Copy(new Constant(_.x + _.y)),
+        Add(Constant(0), x) ,_=> new Copy(_.x),
+        
+        Multiply(Constant(0), a) ,_=> new Copy(new Constant(0)),
+        Multiply(Constant(1), a) ,_=> new Copy(_.a),
+        Multiply(Constant(-1), a) ,_=> new Negate(_.a),
+        Multiply(Constant(x), Constant(y)) ,_=> new Copy(new Constant(_.x * _.y)),
+        
+        Divide(a, Constant(1)) ,_=> new Copy(_.a),
+        Divide(a, Constant(-1)) ,_=> new Negate(_.a),
+        
+        Negate(Constant(x)) ,_=> new Copy(new Constant(-_.x)),
+    ];
+
+    return src => {
+        console.log(`>> src = ${src}`);
+
+        for (let i = 0; i < patterns.length; i += 2) {
+            const find = patterns[i];
+            const replace = patterns[i + 1];
+            const context = {};
+            if (find.match(src, context)) {
+                const result = replace(context);
+                console.log(`<< result = ${result}`);
+                return result;
+            }
+        }
+
+        return src;
+    };
+})();
+
+const propagateStatement = (stmt, resolution) => {
+    // wide read / copy operation into copy instruction
+    if (stmt instanceof TAC && stmt.src instanceof Copy) {
+        let expr = resolution.get(stmt.src.target);
+        if (!(expr instanceof SymbolicOperator))
+            expr = new SymbolicOperator(Copy, [expr]);
+    
+        return new expr.type(...expr.operands.map(op => op.operand)).into(stmt.dst);
+    }
+
+    // narrow reads
+    const [a, b] = stmt.reads.map(read => resolution.get(read).operand);
+
+    if (stmt instanceof TAC) {
+        const { dst, src } = stmt;
+
+        if (src instanceof Unary)
+            return new src.constructor(a).into(dst);
+
+        return new src.constructor(a, b).into(dst);
+    }
+
+    if (stmt instanceof Store)
+        return new Store(a, b);
+    
+    if (stmt instanceof Push)
+        return new Push(a);
+
+    if (stmt instanceof CompareJump)
+        return new CompareJump(a, stmt.compare, b);
+
+    return stmt;
+}
+
+const foldStatement = (stmt) => {
+    if (!(stmt instanceof TAC))
+        return stmt;
+
+    return foldExpression(stmt.src).into(stmt.dst);
+};
+
+const propagateAndFold = fn => {
+    const tracker = new IRStateTracker();
+    
+    for (let i = 0; i < fn.length; i++) {
+        const stmt = fn[i];
+        const wideReads = new Set();
+        if (stmt instanceof TAC && stmt.src instanceof Copy) wideReads.add(stmt.src.target);
+        const resolution = tracker.resolveStatement(stmt, wideReads);
+        
+        const propagated = propagateStatement(stmt, resolution);
+        const folded = foldStatement(propagated);
+        fn[i] = folded;
+
+        tracker.handleStatement(folded, tracker.resolveStatement(folded));
+    }
+};
+
+const removeDeadAssignments = fn => {
+    const tracker = new IRStateTracker();
+
+    for (const register of fn.flatMap(stmt => stmt.registers))
+        if (register.global)
+            tracker.addNecessary(register);
+
+    for (const address of fn.flatMap(stmt => stmt.addresses))
+        tracker.addNecessary(address.register);
+
+    for (const stmt of fn)
+        tracker.handleStatement(stmt, tracker.resolveStatement(stmt));
+    
+    const necessary = tracker.getNecessaryRegisters();
+
+    for (let i = 0; i < fn.length; i++) {
+        const stmt = fn[i];
+
+        if (stmt instanceof TAC && !necessary.has(stmt.dst)) {
+            fn.splice(i, 1);
+            i--;
+        }
+    }
+};
+
 export default function optimize(fn) {
     removeStupidJumps(fn);
     simplifyStore(fn);
     simplifyLoad(fn);
     removeUnusedLabels(fn);
     removeDeadBlocks(fn);
-    foldConstants(fn);
-    foldIdentities(fn);
+    propagateAndFold(fn);
     factorProducts(fn);
+    removeDeadAssignments(fn);
     return fn;
 }

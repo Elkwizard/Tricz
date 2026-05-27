@@ -21,7 +21,9 @@ export default function compile(root, config) {
     console.log(prettyPrint(root));
 
     const ir = toIR(root, config);
+    console.log(ir.map(fn => fn.join("\n")).join("\n\n"));
     const optimized = ir.map(optimize);
+    console.log("=== OPTIMIZED === ");
     console.log(optimized.map(fn => fn.join("\n")).join("\n\n"));
     // return;
     let zez = codegen(optimized);

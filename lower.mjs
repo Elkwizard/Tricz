@@ -15,6 +15,13 @@ const lowerDeclarations = root => {
 };
 
 const lowerOperators = root => {
+    root = root.transform(AST.IndirectSubscript, node => {
+        return make.Subscript(
+            make.Dereference(node.arr).from(node.arr),
+            node.index
+        ).from(node);
+    });
+
     root = root.transform(AST.Prefix, node => {
         const { target: a, op } = node;
 

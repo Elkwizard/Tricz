@@ -74,7 +74,9 @@ class AddrGenerator extends Visitor {
         );
     }
     Reference(node) {
-        return new Exp(new Address(node._decl._reg));
+        // IRGenerator always returns an uncontextualized register
+        const { value } = this.ir.visit(node);
+        return new Exp(new Address(value));
     }
     Dereference(node) {
         return this.ir.visit(node.target);
@@ -435,7 +437,9 @@ class IRGenerator extends Visitor {
         return [
             root._entry,
             ...root.decls.filter(fn => fn !== root._entry)
-        ].map(decl => this.visit(decl));
+        ]
+            .filter(decl => decl instanceof AST.Function)
+            .map(decl => this.visit(decl));
     }
 }
 

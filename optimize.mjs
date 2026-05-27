@@ -92,6 +92,11 @@ const factorProducts = fn => {
 
         // perform factorization
         let factor = Math.abs(a.value);
+
+        if (!factor) {
+            fn[i] = new Copy(new Constant(0)).into(dst);
+            continue;
+        }
         
         const stmts = [(a.value > 0 ? new Copy(b) : new Negate(b)).into(result)];
 
@@ -175,7 +180,7 @@ const foldExpression = (() => {
         
         Divide(a, Constant(1)) ,_=> new Copy(_.a),
         Divide(a, Constant(-1)) ,_=> new Negate(_.a),
-        Divide(Constant(x), Constant(y)) ,_=> new Copy(new Constant(Math.trunc(_.x / _.y))),
+        Divide(Constant(x), Constant(y)) ,_=> new Copy(new Constant(Math.trunc(_.x / _.y) || 0)),
         
         Negate(Constant(x)) ,_=> new Copy(new Constant(-_.x)),
     ];
@@ -194,6 +199,8 @@ const foldExpression = (() => {
 })();
 
 const propagateStatement = (stmt, resolution) => {
+    // console.log(`STMT : ${stmt} {${stmt.reads.map(read => resolution.get(read)).join(", ")}}`);
+
     // wide read / copy operation into copy instruction
     if (stmt instanceof TAC && stmt.src instanceof Copy) {
         let expr = resolution.get(stmt.src.target);
@@ -236,6 +243,13 @@ const foldStatement = (stmt) => {
 
 const propagateAndFold = fn => {
     const tracker = new IRStateTracker();
+
+    const createSpecializedExpression = (src, resolution) => {
+        if (src instanceof Copy)
+            return resolution.get(src.target);
+
+        return null;
+    };
     
     for (let i = 0; i < fn.length; i++) {
         const stmt = fn[i];
@@ -278,7 +292,7 @@ const removeDeadAssignments = fn => {
 
 export default function optimize(fn) {
     removeStupidJumps(fn);
-    for (let n = 0; n < 2; n++) {
+    for (let n = 0; n < 1; n++) {
         simplifyStore(fn);
         simplifyLoad(fn);
         removeUnusedLabels(fn);

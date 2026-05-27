@@ -47,10 +47,7 @@
 				"match": "\\b(int|bool|void|fixed|class)\\b|\\$"
 			}, {
 				"name": "keyword.operator",
-				"match": "\\b(as)\\b"
-			}, {
-				"name": "storage.type.function",
-				"match": "->"
+				"match": "\\b(as|sign|bits)\\b"
 			}, {
 				"name": "constant.language.boolean",
 				"match": "\\b(false|true|null)\\b"

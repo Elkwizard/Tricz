@@ -1,9 +1,20 @@
 include "stdlib";
 
+int GPIO_1 = 0;
+
+// int setChannel(int x, int y, int ch) {
+    
+// 	&(int[3]) pixel = &(GPIO_1 as &(int[3][16][16][2])){ch}[x][y];
+
+//     print(pixel);
+// }
+
 int main() {
+    // setChannel(3, 1, 0); 
+
     int value = read();
-    value = value * -231840;
-    int notValue = value * 8736;
+    value = value * 231840 + 4;
+    int notValue = (value + 3) * 8736;
     print(notValue);
     print(value);
     // int odd = value * 30;

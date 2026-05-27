@@ -26,6 +26,8 @@ export default function clean(root) {
                 return make.Call(node.base, node.step.args).from(node);
             case AST.SubscriptSuffix:
                 return make.Subscript(node.base, node.step.index).from(node);
+            case AST.IndirectSubscriptSuffix:
+                return make.IndirectSubscript(node.base, node.step.index).from(node);
         }
     });
 

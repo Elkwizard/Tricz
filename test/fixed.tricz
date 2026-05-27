@@ -1,0 +1,6 @@
+include "stdlib";
+
+int main() {
+    fixed x = 3.2 * 7.9;
+    print(@(&x as &int));
+}

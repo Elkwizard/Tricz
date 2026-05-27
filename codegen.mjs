@@ -163,6 +163,9 @@ class ZEZGenerator {
         }
     }
     createSpecializedExpression(src, resolution) {
+        if (src instanceof Copy)
+            return resolution.get(src.target);
+        
         if (src instanceof Load)
             return new SymbolicDeref(
                 resolution.get(src.target)

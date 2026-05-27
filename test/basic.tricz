@@ -1,3 +1,5 @@
+include "stdlib";
+
 int multiply(int a, int b) {
     int result = 0;
     for (int i = 0; i < b; i++)
@@ -14,14 +16,6 @@ int factorial(int n) {
     for (int i = 2; i <= n; i++)
         result = multiply(result, i);
     return result;
-}
-
-int read() {
-    return @(-2 as &int);
-}
-
-void print(int x) {
-    @(-1 as &int) += x;
 }
 
 int square(int x) {
@@ -45,5 +39,5 @@ void main() {
 
     int(int)[] fns = [square, factorial];
 
-    print((@((&fns as int + read()) as &(int(int))))(5));
+    print(fns[read()](5));
 }

@@ -4,7 +4,7 @@ import path from "node:path";
 import fs from "node:fs";
 import resolveIncludes from "./includes.mjs";
 
-const {
+let {
     values: {
         output,
         "fixed-precision": fixedPrecision

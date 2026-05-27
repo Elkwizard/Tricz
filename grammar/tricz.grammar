@@ -50,11 +50,13 @@ identifier = /[\w\d_]+/
 
 	CallSuffix = "(" args:Expression[","] ")"
 	SubscriptSuffix = "[" index:Expression "]"
-	Step = CallSuffix | SubscriptSuffix
+    IndirectSubscriptSuffix = "{" index:Expression "}"
+	Step = CallSuffix | SubscriptSuffix | IndirectSubscriptSuffix
 
 	// for lowering
 	Call = fn:Expression args:Expression*
 	Subscript = arr:Expression index:Expression
+    IndirectSubscript = arr:Expression index:Expression
     
     @begin Unary
         Unary = target:Expression

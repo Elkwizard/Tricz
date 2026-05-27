@@ -95,9 +95,7 @@ export class IRStateTracker {
 
             let expr = createSpecializedExpression(src, resolution);
             if (!expr) {
-                if (src instanceof Copy) {
-                    expr = resolution.get(src.target);
-                } else if (src instanceof Unary) {
+                if (src instanceof Unary) {
                     expr = new SymbolicOperator(
                         src.constructor,
                         [resolution.get(src.target)]

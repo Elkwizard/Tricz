@@ -3,3 +3,4 @@ grammar/parse.mjs
 .vscode
 *.dot
 *.svg
+*.vsix

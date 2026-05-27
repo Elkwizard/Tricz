@@ -109,48 +109,54 @@ export const negate = a => {
         return a.target;
     
     if (a instanceof Literal)
-        return new Literal(-a.value);
+        return literal(-a.value);
 
     return new Negate(a);
 };
 export const add = (a, b) => {
-    return addLiteral(a, new Deref(b));
+    return addLiteral(a, deref(b));
 };
 export const addLiteral = (a, b) => {
     return [new Instruction(a, b)];
 };
+export const subtractLiteral = (a, b) => {
+    return addLiteral(a, negate(b));
+};
+export const subtract = (a, b) => {
+    return subtractLiteral(a, deref(b));
+};
 export const set = (a, b) => {
-    return setLiteral(a, new Deref(b));
+    return setLiteral(a, deref(b));
 };
 export const setLiteral = (a, b) => {
     return [
-        new Instruction(a, new Negate(new Deref(a))),
+        new Instruction(a, negate(deref(a))),
         new Instruction(a, b)
     ];
 };
 export const jumpOffset = offsetExp => {
     return [
         new Instruction(ZERO, offsetExp),
-        new Instruction(ZERO, new Literal(-1)),
+        new Instruction(ZERO, literal(-1)),
         new Break()
     ];
 };
 export const jumpOffsetLiteral = offset => {
     return [
-        new Instruction(ZERO, new Literal(offset)),
+        new Instruction(ZERO, literal(offset)),
         new Break()
     ];
 };
 export const jumpLiteral = lineNumber => {
     return [
-        ...set(ZERO, new Literal(lineNumber - 1)),
+        ...set(ZERO, literal(lineNumber - 1)),
         new Break()
     ];
 };
 export const jump = lineNumberExp => {
     return [
         ...set(ZERO, lineNumberExp),
-        new Instruction(ZERO, new Literal(-1)),
+        new Instruction(ZERO, literal(-1)),
         new Break()
     ];
 };

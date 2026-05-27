@@ -153,6 +153,14 @@ class JumpGenerator extends Visitor {
             new Jump(this.ifFalse)
         ];
     }
+    Reference(node) {
+        const ref = this.ir.visit(node);
+        return [
+            ...ref.stmts,
+            new CompareJump(ref.value, ">", this.ifTrue),
+            new Jump(this.ifFalse)
+        ];
+    }
 }
 
 // generates code for the value of an expression
@@ -325,6 +333,20 @@ class IRGenerator extends Visitor {
             ...node.args.map(arg => this.visit(arg))
         );
     }
+    handleBoolean(expr) {
+        const result = new Register(expr._type, false, "bool?");
+        return new Exp(result, this.conditional(
+            expr,
+            [new Copy(new Constant(1)).into(result)],
+            [new Copy(new Constant(0)).into(result)]
+        ));
+    }
+    Compare(node) {
+        return this.handleBoolean(node);
+    }
+    Logic(node) {
+        return this.handleBoolean(node);
+    }
     Ternary(node) {
         const result = new Register(node._type, false, "?");
 
@@ -362,6 +384,10 @@ class IRGenerator extends Visitor {
                     Multiply, product._type,
                     left, right
                 );
+                case "/": return Exp.of(
+                    Divide, product._type,
+                    left, right
+                );
                 case "%": return Exp.of(
                     Remainder, product._type,
                     left, right
@@ -373,7 +399,8 @@ class IRGenerator extends Visitor {
     Increment(inc) {
         const result = new Register(inc._type, false, inc.toString());
         const temp = new Register(inc._type, false, inc.op);
-        const change = inc.op === "++" ? 1 : -1;
+        const scale = inc._type === PrimitiveType.FIXED ? this.fixedFactor : 1;
+        const change = inc.op === "++" ? scale : -scale;
         return Exp.merge(
             target => new Exp(result, [
                 new Load(target).into(result),

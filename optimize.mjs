@@ -182,17 +182,12 @@ const foldExpression = (() => {
     ];
 
     return src => {
-        console.log(`>> src = ${src}`);
-
         for (let i = 0; i < patterns.length; i += 2) {
             const find = patterns[i];
             const replace = patterns[i + 1];
             const context = {};
-            if (find.match(src, context)) {
-                const result = replace(context);
-                console.log(`<< result = ${result}`);
-                return result;
-            }
+            if (find.match(src, context))
+                return replace(context);
         }
 
         return src;

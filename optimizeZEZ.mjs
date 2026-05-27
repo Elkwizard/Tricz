@@ -1,15 +1,17 @@
 import { Break, Deref, Instruction, Literal, Negate, Sign, ZERO } from "./zez.mjs";
 
+const isSimpleAdd = inst => {
+    return  inst instanceof Instruction &&
+            inst.dst instanceof Literal &&
+            inst.src instanceof Literal &&
+            inst.dst.value >= 0;
+};
+
 const removeNullAdds = zez => zez.filter(inst => {
-    return !(inst.src instanceof Literal && inst.src.value === 0);
+    return !(isSimpleAdd(inst) && inst.src.value === 0);
 });
 
 const collapseSimpleAdds = zez => {
-    const isSimpleAdd = inst => {
-        return  inst instanceof Instruction &&
-                inst.dst instanceof Literal &&
-                inst.src instanceof Literal;
-    }
     const result = [];
     for (const inst of zez) {
         const last = result.at(-1);

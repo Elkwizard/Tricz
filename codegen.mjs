@@ -5,40 +5,7 @@ import * as zez from "./zez.mjs";
 import { stripVTControlCharacters, styleText } from "node:util";
 import exportGraph from "./dot.mjs";
 import { DependencyGraph } from "./dependency.mjs";
-
-class SymbolicExpression {
-    /**
-     * @type {Register[]}
-     */
-    get registers() {
-        return [];
-    }
-    /**
-     * @type {Address[]}
-     */
-    get addresses() {
-        return [];
-    }
-}
-
-class SymbolicOperand extends SymbolicExpression {
-    /**
-     * @param {Operand} operand 
-     */
-    constructor(operand) {
-        super();
-        this.operand = operand;
-    }
-    get registers() {
-        return this.operand.registers;
-    }
-    get addresses() {
-        return this.operand.addresses;
-    }
-    toString() {
-        return `${this.operand}`;
-    }
-}
+import { IRStateTracker, SymbolicExpression, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
 
 class SymbolicUnary extends SymbolicExpression {
     /**
@@ -68,23 +35,6 @@ class SymbolicDeref extends SymbolicUnary {
     }
 }
 
-class SymbolicOperator {
-    /**
-     * @param {any} type 
-     * @param {SymbolicExpression[]} operands 
-     */
-    constructor(type, operands) {
-        this.type = type;
-        this.operands = operands;
-    }
-    get registers() {
-        return this.operands.flatMap(op => op.registers);
-    }
-    toString() {
-        return `${this.type.name}(${this.operands.join(", ")})`;
-    }
-}
-
 class ZEZGenerator {
     constructor(stmts) {
         this.stmts = stmts;
@@ -97,9 +47,7 @@ class ZEZGenerator {
         const blocks = findLinearBlocks(this.stmts);
 
         // resolve all operands by collapsing multi-instruction sequences into efficient 0=2 expressions
-        this.knownRegisters = new Map();
-        this.possibleDeps = new DependencyGraph();
-        this.definiteDeps = new DependencyGraph();
+        this.stateTracker = new IRStateTracker();
         this.resolutions = new Map();
         for (const block of blocks)
             this.resolveDependencies(block);
@@ -124,7 +72,7 @@ class ZEZGenerator {
 
         this.substituteLabels();
 
-        exportGraph(this.possibleDeps.nodeToDependencies, "dependency.dot");
+        exportGraph(this.stateTracker.possibleDeps.nodeToDependencies, "dependency.dot");
 
         return this.instructions;
     }
@@ -147,6 +95,8 @@ class ZEZGenerator {
             sp: new PointerType(PrimitiveType.VOID),
             src: new PointerType(PrimitiveType.VOID),
             dst: new PointerType(PrimitiveType.VOID),
+            math: PrimitiveType.INT,
+            mathIndex: PrimitiveType.INT,
             buffer: new ArrayType(PrimitiveType.INT, this.bufferSize)
         };
 
@@ -196,124 +146,13 @@ class ZEZGenerator {
         // all global registers are necessary
         for (const register of this.registers)
             if (register.global)
-                this.possibleDeps.addDependency(null, register);
+                this.stateTracker.addNecessary(register);
 
         // all registers which necessary registers depend on are necessary
-        const necessaryRegisters = this.possibleDeps.getAllDependencies(null);
+        const necessaryRegisters = this.stateTracker.getNecessaryRegisters();
         necessaryRegisters.delete(null);
         for (const register of necessaryRegisters)
             register.global = true;
-    }
-    /**
-     * @param {Operand} operand 
-     */
-    resolveOperand(operand, acceptOperator) {
-        if (this.knownRegisters.has(operand)) {
-            const expr = this.knownRegisters.get(operand);
-            if (acceptOperator || !(expr instanceof SymbolicOperator))
-                return expr;
-        }
-
-        return new SymbolicOperand(operand);
-    }
-    alterAll() {
-        console.log("  ALTER ALL");
-        this.knownRegisters.clear();
-        this.definiteDeps.clear();
-    }
-    alter(register) {
-        const dependents = [...this.definiteDeps.getDependents(register)];
-        console.log(`  ALTER ${register}, DEPENDED ON BY [${dependents.join(", ")}]`);
-        this.definiteDeps.delete(register);
-        this.knownRegisters.delete(register);
-        for (const dependent of dependents)
-            this.alter(dependent);
-    }
-    /**
-     * @param {Statement[]} block 
-     */
-    resolveDependencies(block) {
-        console.log("=== BEGIN ===");
-
-        this.alterAll();
-
-        for (const stmt of block) {
-            console.log("\n" + stmt.toString());
-            console.log(`  KNOWN ${[...this.knownRegisters].map(([key, value]) => `${key} => ${value}`).join(", ")}`);
-            console.log(`  DEFINITE DEPENDENCIES\n${this.definiteDeps}`);
-
-            const resolution = new Map();
-
-            if (stmt instanceof Store) {
-                // stores can allow more complex inputs
-                const resolved = this.resolveOperand(stmt.src, true);
-                resolution.set(stmt.src, resolved);
-            }
-
-            const newDependencies = [];
-
-            for (const read of stmt.reads) {
-                // other instructions can only allow unary operators
-                if (!resolution.has(read))
-                    resolution.set(read, this.resolveOperand(read, false));
-
-                const resolved = resolution.get(read);
-
-                for (const register of resolved.registers) {
-                    if (stmt instanceof TAC) {
-                        newDependencies.push(register);
-                        this.possibleDeps.addDependency(stmt.dst, register);
-                    } else {
-                        this.possibleDeps.addDependency(null, register);
-                    }
-                }
-            }
-
-            this.resolutions.set(stmt, resolution);
-
-            // update knowledge
-            if (stmt instanceof TAC) {
-                const { dst, src } = stmt;
-
-                let expr;
-                if (src instanceof Load) {
-                    expr = new SymbolicDeref(
-                        resolution.get(src.target)
-                    );
-                } else if (src instanceof Negate) {
-                    expr = new SymbolicNegate(
-                        resolution.get(src.target)
-                    );
-                } else if (src instanceof Copy) {
-                    expr = resolution.get(src.target);
-                } else if (src instanceof Unary) {
-                    expr = new SymbolicOperator(
-                        src.constructor,
-                        [resolution.get(src.target)]
-                    );
-                } else if (src instanceof Binary) {
-                    expr = new SymbolicOperator(
-                        src.constructor, [
-                        resolution.get(src.a),
-                        resolution.get(src.b)
-                    ]
-                    );
-                }
-
-                this.alter(dst);
-                for (const dep of newDependencies)
-                    this.definiteDeps.addDependency(dst, dep);
-                if (expr && !expr.registers.includes(dst))
-                    this.knownRegisters.set(dst, expr);
-            } else if (stmt instanceof Store) {
-                this.alterAll();
-            } else if (stmt instanceof Pop) {
-                this.alter(stmt.value);
-                this.possibleDeps.addDependency(null, stmt.value);
-            }
-        }
-
-        console.log("=== END ===\n\n");
     }
     emit(...instructions) {
         console.log(styleText("grey", `\tEMIT ${stripVTControlCharacters(instructions.join(" "))}`));
@@ -322,6 +161,35 @@ class ZEZGenerator {
             if (instruction instanceof zez.Break)
                 this.lineNumber++;
         }
+    }
+    createSpecializedExpression(src, resolution) {
+        if (src instanceof Load)
+            return new SymbolicDeref(
+                resolution.get(src.target)
+            );
+        
+        if (src instanceof Negate)
+            return new SymbolicNegate(
+                resolution.get(src.target)
+            );
+    
+        return null;
+    }
+    /**
+     * @param {Statement[]} block 
+     */
+    resolveDependencies(block) {
+        this.stateTracker.alterAll();
+        
+        console.log("=== BEGIN ===");
+        for (const stmt of block) {
+            const resolution = this.stateTracker.handleStatement(
+                stmt, this.createSpecializedExpression.bind(this)
+            );
+
+            this.resolutions.set(stmt, resolution);
+        }
+        console.log("=== END ===\n\n");
     }
     generateSetup() {
         this.emit(
@@ -562,6 +430,12 @@ class ZEZGenerator {
         return zez.setLiteral(dst, src);
 
     }
+    setZeroLiteral(value) {
+        return [
+            ...zez.addLiteral(zez.ZERO, zez.literal(-this.lineNumber)),
+            ...zez.addLiteral(zez.ZERO, value)
+        ];
+    }
     Push(size, value) {
         this.emit(
             ...this.copyExpr(
@@ -626,12 +500,11 @@ class ZEZGenerator {
             );
         }
     }
-    setZeroLiteral(value) {
-        return [
-            ...zez.addLiteral(zez.ZERO, zez.literal(-this.lineNumber)),
-            ...zez.addLiteral(zez.ZERO, value)
-        ];
-    }
+    // Multiply(size, dst, a, b) {
+    //     dst = this.genExpr(dst);
+    //     a = this.genExpr(a);
+    //     b = this.genExpr(b);
+    // }
     CompareJump(stmt, value, label) {
         let { compare } = stmt;
 

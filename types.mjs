@@ -74,6 +74,15 @@ export class PointerType extends Type {
         return other.target.equals(this.target);
     }
     convertibleTo(other) {
+        if (
+            other instanceof PointerType &&
+            other.target !== PrimitiveType.VOID &&
+            this.target !== PrimitiveType.VOID &&
+            !other.target.equals(this.target)
+        ) {
+            return false;
+        }
+        
         return other.integral;
     }
     toString() {

@@ -17,7 +17,7 @@ identifier = /[\w\d_]+/
 	VoidType = name:"void"
 	LiteralType = IntType | FixedType | BoolType | VoidType
 	NestedType = "(" replace:Type ")"
-	PointerType = "&" target:Type
+	PointerType = "&" target:BaseType
 
 	BaseType = NestedType | PointerType | LiteralType | TypeReference
 
@@ -70,7 +70,7 @@ identifier = /[\w\d_]+/
 
 	Expression = operators Term {
 		prefix Prefix ("-" | "@" | "&" | "!" | "++" | "--")
-		custom Cast (target:last "as" type:Type)
+		custom Cast (target:Cast "as" type:Type)
 		suffix Increment ("++" | "--")
 		left Product ("*" | "/" | "%")
 		left Sum ("+" | "-")

@@ -261,7 +261,11 @@ const propagateAndFold = fn => {
         const folded = foldStatement(propagated);
         fn[i] = folded;
 
-        tracker.handleStatement(folded, tracker.resolveStatement(folded));
+        tracker.handleStatement(
+            folded,
+            tracker.resolveStatement(folded),
+            createSpecializedExpression
+        );
     }
 };
 
@@ -292,7 +296,7 @@ const removeDeadAssignments = fn => {
 
 export default function optimize(fn) {
     removeStupidJumps(fn);
-    for (let n = 0; n < 1; n++) {
+    for (let n = 0; n < 2; n++) {
         simplifyStore(fn);
         simplifyLoad(fn);
         removeUnusedLabels(fn);

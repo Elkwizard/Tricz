@@ -59,6 +59,9 @@ export const $ = new Proxy({}, {
                     return new type(...patterns);
                 return new TypePattern(type, patterns, order);
             };
+            Object.defineProperty(patternFn, Symbol.hasInstance, {
+                value: obj => obj instanceof type
+            });
             return patternFn;
         }
 

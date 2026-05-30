@@ -133,6 +133,9 @@ class JumpGenerator extends Visitor {
 
         logic.error(`MISSING LOGIC ` + logic.op);
     }
+    Not(not) {
+        return this.visit(not.target, this.ifFalse, this.ifTrue);
+    }
     Compare(node) {
         const flipped = Exp.of(
             Negate, node.right._targetType,

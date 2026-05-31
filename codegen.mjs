@@ -80,21 +80,24 @@ class ZEZGenerator {
 
         console.log("=== MARKED NECESSARY ===");
 
-        // generate code for each block, now that operands are resolved
-        this.instructions = [];
-        this.labelLines = new Map();
-        this.lineNumberSymbol = "ZERO";
-        this.generateSetup();
-        for (const block of blocks)
-            for (const stmt of block)
-                if (this.isStatementNecessary(stmt))
-                    this.generateCode(stmt);
-
-        this.substituteLabels();
-
         exportGraph(this.stateTracker.possibleDeps.nodeToDependencies, "dependency.dot");
 
-        return this.instructions;
+        // generate code for each block, now that operands are resolved
+        this.lineNumberSymbol = "ZERO";
+        const programInstructions = blocks
+            .flatMap(block => block
+                .filter(stmt => this.isStatementNecessary(stmt))
+                .flatMap(stmt => {
+                    const code = this.generateCode(stmt);
+                    console.log(styleText("grey", `\tEMIT ${stripVTControlCharacters(code.join(" "))}`));
+                    return code;
+                })
+            );
+
+        return this.substituteLabels([
+            ...this.generateSetup(),
+            ...programInstructions
+        ]);
     }
     locateSymbols() {
         this.labels = new Set();
@@ -183,12 +186,6 @@ class ZEZGenerator {
         for (const register of necessaryRegisters)
             register.global = true;
     }
-    emit(...instructions) {
-        console.log(styleText("grey", `\tEMIT ${stripVTControlCharacters(instructions.join(" "))}`));
-        for (const instruction of instructions) {
-            this.instructions.push(instruction);
-        }
-    }
     isEventualConstant(expr) {
         if (!(expr instanceof SymbolicOperand))
             return false;
@@ -241,9 +238,7 @@ class ZEZGenerator {
         }
     }
     generateSetup() {
-        this.emit(
-            ...zez.addLiteral(this.builtin.sp, zez.literal(this.stackStart))
-        );
+        return zez.addLiteral(this.builtin.sp, zez.literal(this.stackStart));
     }
     generateCode(stmt) {
         const resolution = this.resolutions.get(stmt);
@@ -251,35 +246,38 @@ class ZEZGenerator {
 
         console.log(`${stmt} {${operands.join(", ")}}`);
 
-        if (stmt instanceof TAC) {
-            this[stmt.src.constructor.name](
+        if (stmt instanceof TAC)
+            return this[stmt.src.constructor.name](
                 stmt.dst.size,
                 new SymbolicOperand(new Address(stmt.dst)),
                 ...operands
             );
-        } else if (stmt instanceof Store) {
+        
+        if (stmt instanceof Store) {
             const addr = resolution.get(stmt.addr);
             let src = resolution.get(stmt.src);
             if (!(src instanceof SymbolicOperator))
                 src = new SymbolicOperator(Copy, [src]);
 
-            this[src.type.name](
+            return this[src.type.name](
                 stmt.src.size, addr, ...src.operands
             );
-        } else if (stmt instanceof Push) {
-            this.Push(stmt.value.size, ...operands);
-        } else if (stmt instanceof Pop) {
-            this.Pop(
+        }
+        
+        if (stmt instanceof Push)
+            return this.Push(stmt.value.size, ...operands);
+        
+        if (stmt instanceof Pop)
+            return this.Pop(
                 stmt.value.size,
                 new SymbolicOperand(new Address(stmt.value))
             );
-        } else if (stmt instanceof Branch) {
-            this[stmt.constructor.name](stmt, ...operands);
-        } else if (stmt instanceof LabelDecl) {
-            if (this.instructions.at(-1) instanceof zez.Instruction)
-                this.emit(new zez.Break());
-            this.emit(stmt.label);
-        }
+        
+        if (stmt instanceof Branch)
+            return this[stmt.constructor.name](stmt, ...operands);
+        
+        if (stmt instanceof LabelDecl)
+            return [stmt.label];
     }
     /**
      * Generates the 0=2 AST for a given single-register symbolic expression
@@ -356,14 +354,14 @@ class ZEZGenerator {
             ];
 
         const dstWalker = this.createMemoryWalker(destination, "dst");
-        const stmts = [...dstWalker.init];
+        const insts = [...dstWalker.init];
         for (let i = 0; i < exprs.length; i++) {
-            stmts.push(...zez.setLiteral(dstWalker.get(i), exprs[i]));
+            insts.push(...zez.setLiteral(dstWalker.get(i), exprs[i]));
             if (i < exprs.length - 1)
-                stmts.push(...dstWalker.next);
+                insts.push(...dstWalker.next);
         }
 
-        return stmts;
+        return insts;
     }
     /**
      * Generates the 0=2 AST to copy a given symbolic expression into a destination address
@@ -425,17 +423,17 @@ class ZEZGenerator {
         const dstWalker = this.createMemoryWalker(dst, "dst");
         const srcWalker = this.createMemoryWalker(src, "src");
 
-        const stmts = [...dstWalker.init, ...srcWalker.init];
+        const insts = [...dstWalker.init, ...srcWalker.init];
 
         for (let i = 0; i < size; i++) {
-            stmts.push(
+            insts.push(
                 ...zez.set(dstWalker.get(i), srcWalker.get(i))
             );
             if (i < size - 1)
-                stmts.push(...srcWalker.next, ...dstWalker.next);
+                insts.push(...srcWalker.next, ...dstWalker.next);
         }
 
-        return stmts;
+        return insts;
     }
     getLiteralValue(expr) {
         if (expr instanceof zez.Negate)
@@ -500,39 +498,33 @@ class ZEZGenerator {
         ];
     }
     Push(size, value) {
-        this.emit(
+        return [
             ...this.copyExpr(
                 value, zez.deref(this.builtin.sp), true
             ),
             ...zez.addLiteral(this.builtin.sp, zez.literal(size))
-        );
+        ];
     }
     Pop(size, dst) {
-        this.emit(
+        return [
             ...zez.addLiteral(this.builtin.sp, zez.literal(-size)),
             ...this.copyMemory(
                 size, zez.deref(this.builtin.sp), this.genExpr(dst), true
             )
-        );
+        ];
     }
     Copy(size, dst, src) {
-        this.emit(
-            ...this.copyExpr(src, this.genExpr(dst))
-        );
+        return this.copyExpr(src, this.genExpr(dst));
     }
     Load(size, dst, addr) {
-        this.emit(
-            ...this.copyMemory(
-                size, this.genExpr(addr), this.genExpr(dst)
-            )
+        return this.copyMemory(
+            size, this.genExpr(addr), this.genExpr(dst)
         );
     }
     Negate(size, dst, src) {
-        this.emit(
-            ...this.safeSetLiteral(
-                this.genExpr(dst),
-                zez.negate(this.genExpr(src))
-            )
+        return this.safeSetLiteral(
+            this.genExpr(dst),
+            zez.negate(this.genExpr(src))
         );
     }
     Add(size, dst, a, b) {
@@ -542,33 +534,31 @@ class ZEZGenerator {
 
         const dstValue = zez.deref(dst);
 
-        if (dstValue.equals(a)) {
-            this.emit(
-                ...zez.addLiteral(dst, b)
-            );
-        } else if (dstValue.equals(b)) {
-            this.emit(
-                ...zez.addLiteral(dst, a)
-            );
-        } else if (this.mightAliasValues(dstValue, a) || this.mightAliasValues(dstValue, b)) {
-            this.emit(
+        if (dstValue.equals(a))
+            return zez.addLiteral(dst, b);
+        
+        if (dstValue.equals(b))
+            return zez.addLiteral(dst, a);
+        
+        if (this.mightAliasValues(dstValue, a) || this.mightAliasValues(dstValue, b)) {
+            return [
                 ...zez.setLiteral(this.builtin.buffer, a),
                 ...zez.addLiteral(this.builtin.buffer, b),
                 ...zez.setLiteral(dst, zez.deref(this.builtin.buffer))
-            );
-        } else {
-            this.emit(
-                ...zez.setLiteral(dst, a),
-                ...zez.addLiteral(dst, b)
-            );
+            ];
         }
+        
+        return [
+            ...zez.setLiteral(dst, a),
+            ...zez.addLiteral(dst, b)
+        ];
     }
     // Multiply(size, dst, a, b) {
     //     dst = this.genExpr(dst);
     //     a = this.genExpr(a);
     //     b = this.genExpr(b);
     // }
-    computeSign(value) {
+    getSign(value) {
         let flipSign = false;
 
         if (value instanceof zez.Negate) {
@@ -614,7 +604,9 @@ class ZEZGenerator {
 
         const { math, mathA, mathB, mathIndex, mathTempSign, mathSign } = this.builtin;
 
-        this.emit(
+        const insts = [];
+
+        insts.push(
             ...zez.setLiteral(mathIndex, zez.ZERO),
             ...zez.setLiteral(mathSign, zez.ZERO)
         );
@@ -622,20 +614,20 @@ class ZEZGenerator {
         // determine sign
         if (remainder) {
             // mathSign = (a < 0)
-            this.emit(
+            insts.push(
                 ...this.fixSign(math, a),
                 ...zez.setLiteral(mathB, b)
             );
         } else {
             // mathSign = (a < 0) + (b < 0)
-            this.emit(
+            insts.push(
                 ...this.fixSign(math, a),
                 ...this.fixSign(mathB, b)
             );
         }
 
         // main loop
-        this.emit(
+        insts.push(
             new zez.Break(),
             ...zez.set(mathTempSign, math),
             ...zez.subtract(mathTempSign, mathB),
@@ -657,7 +649,7 @@ class ZEZGenerator {
 
         // apply sign
         if (remainder) {
-            this.emit(
+            insts.push(
                 ...zez.add(zez.ZERO, mathSign),
                 new zez.Break(),
                 // if a >= 0
@@ -669,7 +661,7 @@ class ZEZGenerator {
                 new zez.Break()
             );
         } else {
-            this.emit(
+            insts.push(
                 ...zez.add(zez.ZERO, mathSign),
                 new zez.Break(),
                 // if a >= 0 && b >= 0
@@ -684,12 +676,14 @@ class ZEZGenerator {
                 new zez.Break()
             );
         }
+
+        return insts;
     }
     Divide(size, dst, a, b) {
-        this.divmod(false, dst, a, b);
+        return this.divmod(false, dst, a, b);
     }
     Remainder(size, dst, a, b) {
-        this.divmod(true, dst, a, b);
+        return this.divmod(true, dst, a, b);
     }
     CompareJump(stmt, value, label) {
         let { compare } = stmt;
@@ -697,11 +691,13 @@ class ZEZGenerator {
         value = this.genExpr(value);
         label = this.genExpr(label);
 
-        let sign = this.computeSign(value);
+        let sign = this.getSign(value);
         if (compare === ">" || compare === ">=")
             sign = zez.negate(sign);
 
-        this.emit(
+        const insts = [];
+
+        insts.push(
             ...zez.addLiteral(zez.ZERO, sign),
             zez.SKIP,
             new zez.Break()
@@ -712,55 +708,61 @@ class ZEZGenerator {
         switch (stmt.compare) {
             case ">":
             case "<": {
-                this.emit(...jump(), new zez.Break());
-                this.emit(zez.NOOP, new zez.Break());
+                insts.push(...jump(), new zez.Break());
+                insts.push(zez.NOOP, new zez.Break());
             }; break;
             case ">=":
             case "<=": {
-                this.emit(...jump(), new zez.Break());
-                this.emit(...jump(), new zez.Break());
+                insts.push(...jump(), new zez.Break());
+                insts.push(...jump(), new zez.Break());
             }; break;
             case "==": {
-                this.emit(zez.SKIP, new zez.Break(),);
-                this.emit(...jump(), new zez.Break());
+                insts.push(zez.SKIP, new zez.Break());
+                insts.push(...jump(), new zez.Break());
             }; break;
             case "!=": {
-                this.emit(...jump(), new zez.Break());
-                this.emit(zez.SKIP, new zez.Break());
-                this.emit(...jump(), new zez.Break());
+                insts.push(...jump(), new zez.Break());
+                insts.push(zez.SKIP, new zez.Break());
+                insts.push(...jump(), new zez.Break());
             }; break;
         }
+
+        return insts;
     }
     Jump(stmt, label) {
-        this.emit(
+        return [
             ...this.setZeroLiteral(this.genExpr(label)),
             new zez.Break()
-        );
+        ];
     }
     Call(stmt, fn) {
-        this.emit(
+        return [
             ...zez.setLiteral(
                 zez.deref(this.builtin.sp),
-                zez.literal(new zez.Placeholder(this.lineNumberSymbol))
+                new zez.Placeholder(this.lineNumberSymbol)
             ),
             ...zez.addLiteral(this.builtin.sp, zez.ONE),
             ...this.setZeroLiteral(this.genExpr(fn)),
             new zez.Break()
-        );
+        ];
     }
     Return(stmt) {
-        this.emit(
+        return [
             ...zez.addLiteral(this.builtin.sp, zez.literal(-1)),
             ...this.setZeroLiteral(zez.deref(zez.deref(this.builtin.sp))),
             new zez.Break()
-        );
+        ];
     }
-    substituteLabels() {
+    substituteLabels(rawInstructions) {
         const instructions = [];
         const substitutions = new Map();
         let lineNumber = 0;
-        for (const instruction of this.instructions) {
+        for (const instruction of rawInstructions) {
             if (instruction instanceof Label) {
+                if (instructions.at(-1) instanceof zez.Instruction) {
+                    instructions.push(new zez.Break());
+                    lineNumber++;
+                }
                 substitutions.set(instruction, zez.literal(lineNumber - 1));
             } else {
                 instructions.push(instruction);
@@ -777,7 +779,7 @@ class ZEZGenerator {
                 lineNumber++;
         }
 
-        this.instructions = instructions;
+        return instructions;
     }
 }
 

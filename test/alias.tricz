@@ -1,0 +1,24 @@
+void forget() { }
+
+void main() {
+    int x = 5;
+    &int p = &x;
+
+    forget();
+
+    int y = @p;
+    x = 6;
+    int z = y;
+    @(-1 as &int) += z;
+
+
+    // &int x = 300;
+    // @x += 0;
+    // @(-1 as &int) += 0;
+
+    // int[] a = [@(-2 as &int)];
+    // if (false) { }
+    // a = [a[0]];
+
+    // @(-1 as &int) += a[0];
+}

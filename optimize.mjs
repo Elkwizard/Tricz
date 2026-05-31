@@ -1,3 +1,4 @@
+import { findAddressed } from "./analyze.mjs";
 import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Push, Register, Return, StackOperation, Store, TAC, Unary } from "./ir.mjs";
 import { IRStateTracker, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
 import { $ } from "./pattern.mjs";
@@ -241,8 +242,13 @@ const foldStatement = (stmt) => {
     return foldExpression(stmt.src).into(stmt.dst);
 };
 
-const propagateAndFold = fn => {
-    const tracker = new IRStateTracker();
+const createStateTracker = (fn, analysis) => {
+    const addressed = findAddressed(fn).union(analysis.addressed);
+    return new IRStateTracker(addressed);
+};
+
+const propagateAndFold = (fn, analysis) => {
+    const tracker = createStateTracker(fn, analysis);
 
     const createSpecializedExpression = (src, resolution) => {
         if (src instanceof Copy)
@@ -269,8 +275,8 @@ const propagateAndFold = fn => {
     }
 };
 
-const removeDeadAssignments = fn => {
-    const tracker = new IRStateTracker();
+const removeDeadAssignments = (fn, analysis) => {
+    const tracker = createStateTracker(fn, analysis);
 
     for (const register of fn.flatMap(stmt => stmt.registers))
         if (register.global)
@@ -294,16 +300,16 @@ const removeDeadAssignments = fn => {
     }
 };
 
-export default function optimize(fn) {
-    removeStupidJumps(fn);
+export default function optimize(fn, analysis) {
     for (let n = 0; n < 2; n++) {
+        removeStupidJumps(fn);
         simplifyStore(fn);
         simplifyLoad(fn);
         removeUnusedLabels(fn);
         removeDeadBlocks(fn);
-        propagateAndFold(fn);
+        propagateAndFold(fn, analysis);
         factorProducts(fn);
     }
-    removeDeadAssignments(fn);
+    removeDeadAssignments(fn, analysis);
     return fn;
 }

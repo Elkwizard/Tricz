@@ -6,6 +6,7 @@ import { stripVTControlCharacters, styleText } from "node:util";
 import exportGraph from "./dot.mjs";
 import { DependencyGraph } from "./dependency.mjs";
 import { IRStateTracker, SymbolicExpression, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
+import { findAddressed } from "./analyze.mjs";
 
 class SymbolicUnary extends SymbolicExpression {
     /**
@@ -42,12 +43,13 @@ class ZEZGenerator {
     compile() {
         this.locateSymbols();
         this.addBuiltinRegisters();
+        this.addressed = findAddressed(this.stmts);
         this.protectIndirections();
 
         const blocks = findLinearBlocks(this.stmts);
 
         // resolve all operands by collapsing multi-instruction sequences into efficient 0=2 expressions
-        this.stateTracker = new IRStateTracker();
+        this.stateTracker = new IRStateTracker(this.addressed);
         this.resolutions = new Map();
         for (const block of blocks)
             this.resolveDependencies(block);
@@ -112,17 +114,22 @@ class ZEZGenerator {
         }
     }
     protectIndirections() {
-        for (const stmt of this.stmts)
-            for (const addr of stmt.addresses)
-                addr.register.global = true;
+        for (const register of this.addressed)
+            register.global = true;
     }
     assignRegisterAddresses() {
         let next = 1;
+        this.indirectAddrs = new Set();
         this.addresses = new Map();
         for (const register of this.registers) {
             if (!register.global) continue;
             this.addresses.set(register, next);
-            next += register.type.size;
+            
+            for (let i = 0; i < register.type.size; i++) {
+                const addr = next++;
+                if (this.addressed.has(register))
+                    this.indirectAddrs.add(addr);
+            }
 
             console.log(`${register} => ${this.addresses.get(register)}`);
         }
@@ -408,14 +415,21 @@ class ZEZGenerator {
 
         return expr instanceof zez.Deref || expr instanceof zez.Sign ? expr.target : null;
     }
+    isDirect(addr) {
+        return addr instanceof zez.Literal && !this.indirectAddrs.has(addr.value);
+    }
     mightAlias(size, src, dst) {
-        if (this.getIndirectionAddress(src) || this.getIndirectionAddress(dst))
-            return true;
+        if (!this.getIndirectionAddress(src) && !this.getIndirectionAddress(dst)) {
+            src = this.getLiteralValue(src);
+            dst = this.getLiteralValue(dst);
+    
+            return src < dst || src >= dst + size;
+        }
 
-        src = this.getLiteralValue(src);
-        dst = this.getLiteralValue(dst);
-
-        return dst <= src && src < dst + size;
+        // if (this.isDirect(src) || this.isDirect(dst))
+        //     return false;
+            
+        return true;
     }
     /**
      * Returns true if two given Deref expressions might be dereferencing the same memory

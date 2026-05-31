@@ -51,6 +51,9 @@ export class Register extends Operand {
 }
 
 export class Address extends Operand {
+    /**
+     * @param {Register} register 
+     */
     constructor(register) {
         super();
         this.register = register;
@@ -71,6 +74,9 @@ export class Address extends Operand {
 }
 
 export class Constant extends Operand {
+    /**
+     * @param {number} value 
+     */
     constructor(value) {
         super();
         this.value = value;
@@ -85,6 +91,9 @@ export class Constant extends Operand {
 }
 
 export class List extends Operand {
+    /**
+     * @param {Operand[]} elements 
+     */
     constructor(elements) {
         super();
         this.elements = elements;

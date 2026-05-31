@@ -1,3 +1,4 @@
+import { analyze } from "./analyze.mjs";
 import clean from "./clean.mjs";
 import codegen from "./codegen.mjs";
 import { parse } from "./grammar/parse.mjs";
@@ -22,7 +23,8 @@ export default function compile(root, config) {
 
     const ir = toIR(root, config);
     console.log(ir.map(fn => fn.join("\n")).join("\n\n"));
-    const optimized = ir.map(optimize);
+    const analysis = analyze(ir);
+    const optimized = ir.map(fn => optimize(fn, analysis));
     console.log("=== OPTIMIZED === ");
     console.log(optimized.map(fn => fn.join("\n")).join("\n\n"));
     // return;

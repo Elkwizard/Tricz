@@ -3,10 +3,12 @@ import { DependencyGraph } from "./dependency.mjs";
 import { Binary, Branch, Copy, LabelDecl, Load, Negate, Operand, Pop, Store, TAC, Unary } from "./ir.mjs";
 
 export class IRStateTracker {
-    constructor() {
+    constructor(addressed) {
         this.definiteDeps = new DependencyGraph();
         this.possibleDeps = new DependencyGraph();
         this.knownRegisters = new Map();
+        this.addressed = addressed;
+        this.loadRegisters = new Set();
     }
     get hasLogging() {
         return config.log?.stateTracking;
@@ -34,6 +36,7 @@ export class IRStateTracker {
             console.log("  ALTER ALL");
         this.knownRegisters.clear();
         this.definiteDeps.clear();
+        this.loadRegisters.clear();
     }
     alter(register) {
         const dependents = [...this.definiteDeps.getDependents(register)];
@@ -41,6 +44,9 @@ export class IRStateTracker {
             console.log(`  ALTER ${register}, DEPENDED ON BY [${dependents.join(", ")}]`);
         this.definiteDeps.delete(register);
         this.knownRegisters.delete(register);
+        this.loadRegisters.delete(register);
+        if (this.addressed.has(register))
+            dependents.push(...this.loadRegisters);
         for (const dependent of dependents)
             this.alter(dependent);
     }
@@ -112,8 +118,14 @@ export class IRStateTracker {
             }
 
             this.alter(dst);
+
+            // add new knowledge after change
             for (const dep of newDependencies)
                 this.definiteDeps.addDependency(dst, dep);
+            
+            if (src instanceof Load)
+                this.loadRegisters.add(dst);
+
             if (expr && !expr.registers.includes(dst))
                 this.knownRegisters.set(dst, expr);
         } else if (stmt instanceof Store || stmt instanceof Branch || stmt instanceof LabelDecl) {

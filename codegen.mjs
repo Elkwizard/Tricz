@@ -96,7 +96,11 @@ class ZEZGenerator {
             src: new PointerType(PrimitiveType.VOID),
             dst: new PointerType(PrimitiveType.VOID),
             math: PrimitiveType.INT,
+            mathA: PrimitiveType.INT,
+            mathB: PrimitiveType.INT,
             mathIndex: PrimitiveType.INT,
+            mathTempSign: PrimitiveType.INT,
+            mathSign: PrimitiveType.INT,
             buffer: new ArrayType(PrimitiveType.INT, this.bufferSize)
         };
 
@@ -265,6 +269,10 @@ class ZEZGenerator {
 
             if (operand instanceof Label)
                 return new zez.Placeholder(operand);
+
+            // must be 1 size, per precondition
+            if (operand instanceof List)
+                return this.genExpr(new SymbolicOperand(operand.elements[0]));
         }
 
         throw new Error(symExpr);
@@ -281,7 +289,7 @@ class ZEZGenerator {
         return {
             init: [...zez.setLiteral(this.builtin[kind], start)],
             get: i => zez.deref(this.builtin[kind]),
-            next: [...zez.addLiteral(this.builtin[kind], zez.literal(1))]
+            next: [...zez.addLiteral(this.builtin[kind], zez.ONE)]
         };
     }
     /**
@@ -424,6 +432,9 @@ class ZEZGenerator {
         return this.mightAlias(1, a, b);
     }
     safeSetLiteral(dst, src, noAlias = false) {
+        if (zez.deref(dst).equals(src))
+            return zez.addLiteral(dst, zez.ZERO);
+
         noAlias ||= !this.mightAliasValues(zez.deref(dst), src);
 
         if (!noAlias)
@@ -510,13 +521,7 @@ class ZEZGenerator {
     //     a = this.genExpr(a);
     //     b = this.genExpr(b);
     // }
-    CompareJump(stmt, value, label) {
-        let { compare } = stmt;
-
-        value = this.genExpr(value);
-        label = this.genExpr(label);
-
-        // optimally create sign expression for "value", factoring out -
+    computeSign(value) {
         let flipSign = false;
 
         if (value instanceof zez.Negate) {
@@ -536,26 +541,129 @@ class ZEZGenerator {
             throw new Error(value); // not possible
         }
 
-        if (compare === ">" || compare === ">=")
-            flipSign = !flipSign;
+        return flipSign ? zez.negate(sign) : sign;
+    }
+    fixSign(dst, expr) {
+        const { mathSign } = this.builtin;
 
-        if (flipSign) sign = zez.negate(sign);
+        return [
+            ...zez.setLiteral(dst, expr),
+            ...zez.addLiteral(zez.ZERO, zez.sign(dst)),
+            zez.SKIP,
+            new zez.Break(),
+            // if expr < 0
+            ...zez.addLiteral(mathSign, zez.ONE),
+            ...zez.setLiteral(dst, zez.negate(expr)),
+            new zez.Break(),
+            // if expr = 0
+            zez.NOOP,
+            new zez.Break()
+        ];
+    }
+    divmod(remainder, dst, a, b) {
+        dst = this.genExpr(dst);
+        a = this.genExpr(a);
+        b = this.genExpr(b);
+
+        const { math, mathA, mathB, mathIndex, mathTempSign, mathSign } = this.builtin;
+
+        this.emit(
+            ...zez.setLiteral(mathIndex, zez.ZERO),
+            ...zez.setLiteral(mathSign, zez.ZERO)
+        );
+
+        // determine sign
+        if (remainder) {
+            // mathSign = (a < 0)
+            this.emit(...this.fixSign(math, a));
+        } else {
+            // mathSign = (a < 0) + (b < 0)
+            this.emit(
+                ...this.fixSign(math, a),
+                ...this.fixSign(mathB, b)
+            );
+        }
+
+        // main loop
+        this.emit(
+            new zez.Break(),
+            ...zez.set(mathTempSign, math),
+            ...zez.subtract(mathTempSign, mathB),
+            ...zez.addLiteral(zez.ZERO, zez.sign(mathTempSign)),
+            zez.SKIP,
+            new zez.Break(),
+            // if math < mathB
+            ...zez.addLiteral(zez.ZERO, zez.literal(2)),
+            new zez.Break(),
+            // if math = mathB
+            zez.NOOP,
+            new zez.Break(),
+            // if math > mathB
+            ...zez.subtract(math, mathB),
+            ...zez.addLiteral(mathIndex, zez.ONE),
+            ...zez.subtractLiteral(zez.ZERO, zez.literal(4)),
+            new zez.Break(),
+        );
+
+        // apply sign
+        if (remainder) {
+            this.emit(
+                ...zez.add(zez.ZERO, mathSign),
+                new zez.Break(),
+                // if a >= 0
+                ...zez.set(dst, math),
+                zez.SKIP,
+                new zez.Break(),
+                // if a < 0
+                ...zez.setLiteral(dst, zez.negate(zez.deref(math))),
+                new zez.Break()
+            );
+        } else {
+            this.emit(
+                ...zez.add(zez.ZERO, mathSign),
+                new zez.Break(),
+                // if a >= 0 && b >= 0
+                zez.SKIP,
+                new zez.Break(),
+                // if (a < 0) != (b < 0)
+                ...zez.setLiteral(dst, zez.negate(zez.deref(mathIndex))),
+                zez.SKIP,
+                new zez.Break(),
+                // if a < 0 && b < 0
+                ...zez.set(dst, mathIndex),
+                new zez.Break()
+            );
+        }
+    }
+    Divide(size, dst, a, b) {
+        this.divmod(false, dst, a, b);
+    }
+    Remainder(size, dst, a, b) {
+        this.divmod(true, dst, a, b);
+    }
+    CompareJump(stmt, value, label) {
+        let { compare } = stmt;
+
+        value = this.genExpr(value);
+        label = this.genExpr(label);
+
+        let sign = this.computeSign(value);
+        if (compare === ">" || compare === ">=")
+            sign = zez.negate(sign);
 
         this.emit(
             ...zez.addLiteral(zez.ZERO, sign),
-            ...zez.addLiteral(zez.ZERO, zez.literal(1)),
+            zez.SKIP,
             new zez.Break()
         );
 
         const jump = () => this.setZeroLiteral(label);
-        const nop = zez.addLiteral(zez.ZERO, zez.literal(0));
-        const skip = zez.addLiteral(zez.ZERO, zez.literal(1));
 
         switch (stmt.compare) {
             case ">":
             case "<": {
                 this.emit(...jump(), new zez.Break());
-                this.emit(...nop, new zez.Break());
+                this.emit(zez.NOOP, new zez.Break());
             }; break;
             case ">=":
             case "<=": {
@@ -563,12 +671,12 @@ class ZEZGenerator {
                 this.emit(...jump(), new zez.Break());
             }; break;
             case "==": {
-                this.emit(...skip, new zez.Break(),);
+                this.emit(zez.SKIP, new zez.Break(),);
                 this.emit(...jump(), new zez.Break());
             }; break;
             case "!=": {
                 this.emit(...jump(), new zez.Break());
-                this.emit(...skip, new zez.Break());
+                this.emit(zez.SKIP, new zez.Break());
                 this.emit(...jump(), new zez.Break());
             }; break;
         }
@@ -582,7 +690,7 @@ class ZEZGenerator {
     Call(stmt, fn) {
         this.emit(
             ...zez.setLiteral(zez.deref(this.builtin.sp), zez.literal(this.lineNumber)),
-            ...zez.addLiteral(this.builtin.sp, zez.literal(1)),
+            ...zez.addLiteral(this.builtin.sp, zez.ONE),
             ...this.setZeroLiteral(this.genExpr(fn)),
             new zez.Break()
         );

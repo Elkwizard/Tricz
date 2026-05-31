@@ -558,6 +558,7 @@ class ZEZGenerator {
         return flipSign ? zez.negate(sign) : sign;
     }
     fixSign(dst, expr) {
+        console.log(expr);
         const { mathSign } = this.builtin;
 
         return [
@@ -589,7 +590,10 @@ class ZEZGenerator {
         // determine sign
         if (remainder) {
             // mathSign = (a < 0)
-            this.emit(...this.fixSign(math, a));
+            this.emit(
+                ...this.fixSign(math, a),
+                ...zez.setLiteral(mathB, b)
+            );
         } else {
             // mathSign = (a < 0) + (b < 0)
             this.emit(

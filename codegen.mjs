@@ -83,7 +83,7 @@ class ZEZGenerator {
         // generate code for each block, now that operands are resolved
         this.instructions = [];
         this.labelLines = new Map();
-        this.lineNumber = 0;
+        this.lineNumberSymbol = "ZERO";
         this.generateSetup();
         for (const block of blocks)
             for (const stmt of block)
@@ -187,8 +187,6 @@ class ZEZGenerator {
         console.log(styleText("grey", `\tEMIT ${stripVTControlCharacters(instructions.join(" "))}`));
         for (const instruction of instructions) {
             this.instructions.push(instruction);
-            if (instruction instanceof zez.Break)
-                this.lineNumber++;
         }
     }
     isEventualConstant(expr) {
@@ -280,7 +278,7 @@ class ZEZGenerator {
         } else if (stmt instanceof LabelDecl) {
             if (this.instructions.at(-1) instanceof zez.Instruction)
                 this.emit(new zez.Break());
-            this.labelLines.set(stmt.label, zez.literal(this.lineNumber - 1));
+            this.emit(stmt.label);
         }
     }
     /**
@@ -497,7 +495,7 @@ class ZEZGenerator {
     }
     setZeroLiteral(value) {
         return [
-            ...zez.addLiteral(zez.ZERO, zez.literal(-this.lineNumber)),
+            ...zez.addLiteral(zez.ZERO, zez.negate(new zez.Placeholder(this.lineNumberSymbol))),
             ...zez.addLiteral(zez.ZERO, value)
         ];
     }
@@ -741,7 +739,10 @@ class ZEZGenerator {
     }
     Call(stmt, fn) {
         this.emit(
-            ...zez.setLiteral(zez.deref(this.builtin.sp), zez.literal(this.lineNumber)),
+            ...zez.setLiteral(
+                zez.deref(this.builtin.sp),
+                zez.literal(new zez.Placeholder(this.lineNumberSymbol))
+            ),
             ...zez.addLiteral(this.builtin.sp, zez.ONE),
             ...this.setZeroLiteral(this.genExpr(fn)),
             new zez.Break()
@@ -755,8 +756,28 @@ class ZEZGenerator {
         );
     }
     substituteLabels() {
-        for (const instruction of this.instructions)
-            instruction.replace(this.labelLines);
+        const instructions = [];
+        const substitutions = new Map();
+        let lineNumber = 0;
+        for (const instruction of this.instructions) {
+            if (instruction instanceof Label) {
+                substitutions.set(instruction, zez.literal(lineNumber - 1));
+            } else {
+                instructions.push(instruction);
+                if (instruction instanceof zez.Break)
+                    lineNumber++;
+            }
+        }
+
+        lineNumber = 0;
+        for (const instruction of instructions) {
+            substitutions.set(this.lineNumberSymbol, zez.literal(lineNumber));
+            instruction.replace(substitutions);
+            if (instruction instanceof zez.Break)
+                lineNumber++;
+        }
+
+        this.instructions = instructions;
     }
 }
 

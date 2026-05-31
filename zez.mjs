@@ -56,6 +56,9 @@ export class Negate extends Operator {
     toString() {
         return `-${this.target}`;
     }
+    replace(mapping) {
+        return negate(this.target.replace(mapping));
+    }
 }
 
 export class Sign extends Operator {

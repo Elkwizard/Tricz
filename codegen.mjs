@@ -426,8 +426,8 @@ class ZEZGenerator {
             return src < dst || src >= dst + size;
         }
 
-        // if (this.isDirect(src) || this.isDirect(dst))
-        //     return false;
+        if (this.isDirect(src) || this.isDirect(dst))
+            return false;
             
         return true;
     }

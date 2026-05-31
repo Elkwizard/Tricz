@@ -36,6 +36,24 @@ class SymbolicDeref extends SymbolicUnary {
     }
 }
 
+class SymbolicSum extends SymbolicExpression {
+    /**
+     * @param {SymbolicExpression} a
+     * @param {SymbolicExpression} b
+     */
+    constructor(a, b) {
+        super();
+        this.a = a;
+        this.b = b;
+    }
+    get registers() {
+        return [...this.a.registers, ...this.b.registers];
+    }
+    get addresses() {
+        return [...this.a.addresses, ...this.b.addresses];
+    }
+}
+
 class ZEZGenerator {
     constructor(stmts) {
         this.stmts = stmts;
@@ -173,6 +191,13 @@ class ZEZGenerator {
                 this.lineNumber++;
         }
     }
+    isEventualConstant(expr) {
+        if (!(expr instanceof SymbolicOperand))
+            return false;
+
+        const { operand } = expr;
+        return operand instanceof Address || operand instanceof Constant;
+    }
     createSpecializedExpression(src, resolution) {
         if (src instanceof Copy)
             return resolution.get(src.target);
@@ -186,6 +211,16 @@ class ZEZGenerator {
             return new SymbolicNegate(
                 resolution.get(src.target)
             );
+        
+        if (src instanceof Add) {
+            const a = resolution.get(src.a);
+            const b = resolution.get(src.b);
+
+            if (this.isEventualConstant(a) && this.isEventualConstant(b)) {
+                // TODO: make this an optimized case, even though it doesn't happen
+            }
+        }
+
     
         return null;
     }
@@ -558,7 +593,6 @@ class ZEZGenerator {
         return flipSign ? zez.negate(sign) : sign;
     }
     fixSign(dst, expr) {
-        console.log(expr);
         const { mathSign } = this.builtin;
 
         return [

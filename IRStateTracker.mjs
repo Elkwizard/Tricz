@@ -79,7 +79,7 @@ export class IRStateTracker {
     }
     /**
      * @param {Statement} stmt
-     * @param {(src: Unary | Binary) => SymbolicExpression | null} createSpecializedExpression
+     * @param {(src: Unary | Binary, resolution: Map<Operand, SymbolicExpression | SymbolicOperator>, dst: Register) => SymbolicExpression | null} createSpecializedExpression
      */
     handleStatement(stmt, resolution, createSpecializedExpression = () => null) {
         const newDependencies = [];
@@ -99,7 +99,7 @@ export class IRStateTracker {
         if (stmt instanceof TAC) {
             const { dst, src } = stmt;
 
-            let expr = createSpecializedExpression(src, resolution);
+            let expr = createSpecializedExpression(src, resolution, dst);
             if (!expr) {
                 if (src instanceof Unary) {
                     expr = new SymbolicOperator(

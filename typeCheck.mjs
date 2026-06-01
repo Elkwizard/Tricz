@@ -1,7 +1,7 @@
 import { AST } from "./ast.mjs";
 import { breadth } from "./dependency.mjs";
 import exportGraph from "./dot.mjs";
-import { ArrayType, FunctionType, PointerType, PrimitiveType, Type } from "./types.mjs";
+import { ArrayType, FunctionType, PointerType, PrimitiveType, StructSchema, StructType, Type } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 
 
@@ -43,6 +43,28 @@ class TypeChecker extends Visitor {
             this.visit(fn.result),
             fn.params.map(param => this.visit(param))
         );
+    }
+    TypeReference(ref) {
+        return this.visit(ref._decl);
+    }
+    Field(field) {
+        return this.visit(field.type);
+    }
+    Struct(struct) {
+        const schema = new StructSchema(struct.name);
+        struct._type = new StructType(schema);
+
+        for (const field of struct.fields) {
+            const type = this.visit(field);
+            schema.addField(field.name, type);
+        }
+
+        schema.finalize();
+        
+        if (!isFinite(struct._type.size))
+            struct.error(`Cannot create recursive struct type`);
+
+        return struct._type;
     }
     // expressions
     Int() {
@@ -173,6 +195,19 @@ class TypeChecker extends Visitor {
             arr.error(`Cannot subscript non-array type '${arrType}'`);
             
         return arrType.element;
+    }
+    PropertyAccess({ obj, field }) {
+        const objType = this.visit(obj);
+
+        if (!(objType instanceof StructType))
+            obj.error(`Cannot access property of non-struct type '${objType}'`);
+
+        const { schema } = objType;
+
+        if (!schema.fields.has(field))
+            obj.error(`Struct type '${objType}' has no field '${field}'`);
+
+        return schema.fields.get(field).type;
     }
     addCall(caller, callee) {
         if (!this.callGraph.has(caller))
@@ -376,6 +411,11 @@ class TypeChecker extends Visitor {
 
         if (expr instanceof AST.Subscript) {
             this.assertLValue(expr.arr, message);
+            return;
+        }
+
+        if (expr instanceof AST.PropertyAccess) {
+            this.assertLValue(expr.obj, message);
             return;
         }
 

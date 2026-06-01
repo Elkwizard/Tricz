@@ -28,6 +28,10 @@ export default function clean(root) {
                 return make.Subscript(node.base, node.step.index).from(node);
             case AST.IndirectSubscriptSuffix:
                 return make.IndirectSubscript(node.base, node.step.index).from(node);
+            case AST.PropertyAccessSuffix:
+                return make.PropertyAccess(node.base, node.step.field).from(node);
+            case AST.IndirectPropertyAccessSuffix:
+                return make.IndirectPropertyAccess(node.base, node.step.field).from(node);
         }
     });
 

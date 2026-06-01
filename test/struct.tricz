@@ -1,0 +1,46 @@
+include "stdlib";
+
+struct Point {
+    int x;
+    int y;
+}
+
+struct Tuple {
+    Point p;
+    fixed z;
+}
+
+void swapPoint(&Point p) {
+    int t = p->y;
+    p->y = p->x;
+    p->x = t;
+}
+
+Point swappedPoint(Point p) {
+    Point result;
+    result.x = p.y;
+    result.y = p.x;
+    return result;
+}
+
+void printPoint(Point p) {
+    print(p.x);
+    print(p.y);
+}
+
+int main() {
+    Tuple t;
+    t.p.x = 5;
+    t.p.y = 8;
+    t.z = 11;
+
+    printPoint(t.p);
+
+    swapPoint(&t.p);
+
+    print(t.p.x + t.z);
+
+    printPoint(t.p);
+
+    printPoint(swappedPoint(t.p));
+}

@@ -135,3 +135,47 @@ export class FunctionType extends Type {
         return `${this.result}(${this.params.join(", ")})`;
     }
 }
+
+export class StructField {
+    constructor(name, type, offset) {
+        this.name = name;
+        this.type = type;
+        this.offset = offset;
+    }
+}
+
+export class StructSchema {
+    constructor(name, fieldTypes) {
+        this.name = name;
+        this.fields = new Map();
+        this.size = Infinity;
+        this.offset = 0;
+    }
+    addField(name, type) {
+        this.fields.set(name, new StructField(name, type, this.offset));
+        this.offset += type.size;
+    }
+    finalize() {
+        this.size = this.offset;
+    }
+}
+
+export class StructType extends Type {
+    constructor(schema) {
+        super();
+        this.checking = false;
+        this.schema = schema;
+    }
+    get size() {
+        return this.schema.size;
+    }
+    equals(other) {
+        if (!(other instanceof StructType))
+            return false;
+
+        return this.schema === other.schema;
+    }
+    toString() {
+        return this.schema.name;
+    }
+}

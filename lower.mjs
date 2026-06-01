@@ -22,6 +22,13 @@ const lowerOperators = root => {
         ).from(node);
     });
 
+    root = root.transform(AST.IndirectPropertyAccess, node => {
+        return make.PropertyAccess(
+            make.Dereference(node.obj).from(node.obj),
+            node.field
+        ).from(node);
+    });
+
     root = root.transform(AST.Prefix, node => {
         const { target: a, op } = node;
 

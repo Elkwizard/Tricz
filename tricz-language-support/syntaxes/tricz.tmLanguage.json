@@ -41,13 +41,13 @@
 				"match": "\\b(if|else|for|break|continue|while|return|continuing)\\b|\\?|:"
 			}, {
 				"name": "keyword.other.directive",
-				"match": "\\b(include|inline)\\b"
+				"match": "\\b(include|inline|struct)\\b"
 			}, {
 				"name": "storage.type",
-				"match": "\\b(int|bool|void|fixed|class)\\b|\\$"
+				"match": "\\b(int|bool|void|fixed)\\b|\\$"
 			}, {
 				"name": "keyword.operator",
-				"match": "\\b(as|sign|bits)\\b"
+				"match": "\\b(as|sign|bits|protect)\\b"
 			}, {
 				"name": "constant.language.boolean",
 				"match": "\\b(false|true|null)\\b"
@@ -89,6 +89,9 @@
 		},
 		"identifiers": {
 			"patterns": [{
+				"name": "storage.type",
+				"match": "([_\\w\\d]+)(?=\\s+[_\\w\\d]+)"
+			}, {
 				"name": "support.variable.property",
 				"match": "(?<=\\.\\s*)[_\\w\\d]+"
 			}, {

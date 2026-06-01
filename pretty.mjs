@@ -66,6 +66,9 @@ class PrettyPrinter extends Visitor {
     Array({ elements }) {
         this.tag`[${[elements, ", "]}]`;
     }
+    PropertyAccess({ obj, field }) {
+        this.tag`${obj}.${field}`;
+    }
     // types
     TypeReference({ name }) {
         this.print(name);
@@ -153,6 +156,18 @@ class PrettyPrinter extends Visitor {
     Function({ inline, result, name, params, body }) {
         if (inline) this.print(styleText("magenta", "inline "));
         this.tag`${result} ${styleText("green", name)}(${[params, ", "]}) ${body}`;
+    }
+    Field({ type, name }) {
+        this.tag`${type} ${name};\n`;
+    }
+    Struct({ name, fields }) {
+        this.print(styleText("magenta", "struct "));
+        this.tag`${name} {\n`;
+        this.indent();
+        for (const field of fields)
+            this.visit(field);
+        this.unindent();
+        this.println("}");
     }
     root({ includes, decls }) {
         for (const include of includes)

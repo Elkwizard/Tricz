@@ -70,6 +70,19 @@ class AddrGenerator extends Visitor {
     Dereference(node) {
         return this.ir.visit(node.target);
     }
+    PropertyAccess(node) {
+        const { schema } = node.obj._type;
+        const field = schema.fields.get(node.field);
+
+        const sum = new Register(new PointerType(node._type), false, `${schema.name}.${node.field}`);
+
+        return Exp.merge(
+            objAddr => new Exp(sum, [
+                new Add(objAddr, new Constant(field.offset)).into(sum)
+            ]),
+            this.visit(node.obj)
+        );
+    }
     Subscript(node) {
         const elementSize = node._type.size;
         const product = new Register(PrimitiveType.INT, false, "[*]");
@@ -295,6 +308,9 @@ class IRGenerator extends Visitor {
         if (_decl instanceof AST.Param)
             return new Exp(_decl._reg);
         return new Exp(_decl._reg);
+    }
+    PropertyAccess(node) {
+        return Exp.of(Load, node._type, this.addr.visit(node));
     }
     Subscript(node) {
         return Exp.of(Load, node._type, this.addr.visit(node));

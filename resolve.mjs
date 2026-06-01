@@ -67,6 +67,15 @@ class Resolver extends Visitor {
         if (variable.value) this.resolveReferences(variable.value);
         this.declare(variable);
     }
+    Field(field) {
+        this.resolveReferences(field.type);
+        this.declare(field);
+    }
+    Struct(struct) {
+        for (const field of struct.fields)
+            this.visit(field);
+        this.declare(struct);
+    }
     // functions are pre-declared, and thus don't declare themselves
     Function(fn) {
         this.resolveReferences(fn.result);
@@ -83,16 +92,16 @@ class Resolver extends Visitor {
 
         // first put all global symbols into global scope, checking variables in order
         for (const decl of root.decls) {
-            if (decl instanceof AST.Function) {
-                this.declare(decl);
-            } else {
+            if (decl instanceof AST.Variable) {
                 this.visit(decl);
+            } else {
+                this.declare(decl);
             }
         }
 
         // now check functions, since the global scope is full
         for (const decl of root.decls) {
-            if (decl instanceof AST.Function)
+            if (!(decl instanceof AST.Variable))
                 this.visit(decl);
         }
 

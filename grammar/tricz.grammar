@@ -51,12 +51,16 @@ identifier = /[\w\d_]+/
 	CallSuffix = "(" args:Expression[","] ")"
 	SubscriptSuffix = "[" index:Expression "]"
     IndirectSubscriptSuffix = "{" index:Expression "}"
-	Step = CallSuffix | SubscriptSuffix | IndirectSubscriptSuffix
+    PropertyAccessSuffix = "." field:identifier
+    IndirectPropertyAccessSuffix = "->" field:identifier
+	Step = CallSuffix | SubscriptSuffix | IndirectSubscriptSuffix | PropertyAccessSuffix | IndirectPropertyAccessSuffix
 
 	// for lowering
 	Call = fn:Expression args:Expression*
 	Subscript = arr:Expression index:Expression
     IndirectSubscript = arr:Expression index:Expression
+    PropertyAccess = obj:Expression field:identifier
+    IndirectPropertyAccess = obj:Expression field:identifier
     
     @begin Unary
         Unary = target:Expression
@@ -109,11 +113,13 @@ Continuing = "continuing" body:Statement
 @begin Declaration
 	Param = type:Type name:identifier
 	Variable = $Param ("=" value:Expression)? ";"
+    Field = $Param ";"
 	@begin Scope
 		Function = inline:"inline"? result:Type name:identifier "(" params:Param[","] ")" body:Block
+        Struct = "struct" name:identifier "{" fields:Field* "}"
 	@end
 
-	Declaration = Function | Variable
+	Declaration = Struct | Function | Variable
 @end
 
 Program = decls:Declaration

@@ -200,7 +200,9 @@ class ZEZGenerator {
         const { operand } = expr;
         return operand instanceof Address || operand instanceof Constant;
     }
-    createSpecializedExpression(src, resolution) {
+    createSpecializedExpression(src, resolution, dst) {
+        if (dst.size > 1) return null;
+
         if (src instanceof Copy)
             return resolution.get(src.target);
         

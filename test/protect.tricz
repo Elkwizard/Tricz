@@ -5,5 +5,9 @@ int multiply(int x, int y) {
 }
 
 void main() {
-    print(multiply(read(), 2));
+    int x = read();
+    int y = multiply(x, 2);
+    int z = multiply(x, 4);
+    print(y);
+    print(z);
 }

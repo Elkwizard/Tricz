@@ -1,6 +1,6 @@
 import config from "./config.mjs";
 import { DependencyGraph } from "./dependency.mjs";
-import { Binary, Branch, Copy, LabelDecl, Load, Negate, Operand, Pop, Store, TAC, Unary } from "./ir.mjs";
+import { Binary, Branch, Copy, LabelDecl, Load, Negate, Operand, Pop, Protect, Store, TAC, Unary } from "./ir.mjs";
 
 export class IRStateTracker {
     constructor(addressed) {
@@ -118,16 +118,20 @@ export class IRStateTracker {
             }
 
             this.alter(dst);
-
-            // add new knowledge after change
-            for (const dep of newDependencies)
-                this.definiteDeps.addDependency(dst, dep);
             
-            if (src instanceof Load)
+            if (src instanceof Load) {
                 this.loadRegisters.add(dst);
+            } else if (src instanceof Protect) {
+                expr = null;
+            }
 
-            if (expr && !expr.registers.includes(dst))
+            if (expr && !expr.registers.includes(dst)) {
+                // add new knowledge after change
+                for (const dep of newDependencies)
+                    this.definiteDeps.addDependency(dst, dep);
+
                 this.knownRegisters.set(dst, expr);
+            }
         } else if (stmt instanceof Store || stmt instanceof Branch || stmt instanceof LabelDecl) {
             this.alterAll();
         } else if (stmt instanceof Pop) {

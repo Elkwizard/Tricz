@@ -4,6 +4,7 @@ import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.mjs";
 import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop } from "./ir.mjs";
+import { breadth } from "./dependency.mjs";
 
 const { make } = AST;
 
@@ -156,6 +157,7 @@ class JumpGenerator extends Visitor {
 
 // generates code for the value of an expression
 class IRGenerator extends Visitor {
+    static INLINE_THRESHOLD = 25;
     constructor(config) {
         super();
         this.fixedFactor = 10 ** config.fixedPrecision;
@@ -164,20 +166,19 @@ class IRGenerator extends Visitor {
         this.addr = new AddrGenerator(this);
         this.jump = new JumpGenerator(this);
         this.returnRegisters = new ValueMap();
-        this.paramRegisters = new ValueMap();
         this.functions = [];
     }
-    getParamRegister(spec) {
-        if (!this.paramRegisters.has(spec))
-            this.paramRegisters.set(spec, new Register(spec.type, true, `param[${spec.index}]`));
-
-        return this.paramRegisters.get(spec);
-    }
-    getReturnRegister(type) {
+    getIndirectReturnRegister(type) {
         if (!this.returnRegisters.has(type))
             this.returnRegisters.set(type, new Register(type, true, "return"));
-
+    
         return this.returnRegisters.get(type);
+    }
+    getReturnRegister(fn) {
+        if (fn._indirect || fn._recursive)
+            return this.getIndirectReturnRegister(fn._type.result);
+
+        return fn._returnReg;
     }
     convert(exp, srcType, targetType) {
         // the only runtime consequences of type conversions are fixed-to-int conversions (and vice versa)
@@ -255,15 +256,17 @@ class IRGenerator extends Visitor {
         return [new Jump(stmt._loop._labels.continuing)]
     }
     Return(node) {
-        const result = [new Return()];
+        const stmts = [];
         if (node.value) {
+            const fn = this.functions.at(-1);
             const returnType = node.value._targetType;
-            result.unshift(
+            stmts.unshift(
                 ...this.visit(node.value)
-                    .copyInto(this.getReturnRegister(returnType))
+                    .copyInto(this.getReturnRegister(fn))
             );
         }
-        return result;
+        stmts.push(new Return());
+        return stmts;
     }
     Reference({ _decl }) {
         if (_decl instanceof AST.Function)
@@ -283,36 +286,36 @@ class IRGenerator extends Visitor {
     }
     Call(node) {
         const caller = this.functions.at(-1);
+        const result = new Register(node._type, false, "call");
 
         if (
             node._indirect ||
             node.fn._decl._indirect ||
-            node.fn._decl._callable.has(node.fn._decl) ||
-            node.fn._decl._callable.has(null)
+            node.fn._decl._recursive
         ) {
             node.error("Indirect or recursive calls are not supported");
         }
 
         // best case: non-recursive call to direct function
-        const result = new Register(node._type, false, "call");
+        const fn = node.fn._decl;
         return Exp.merge(
-            (fn, ...args) => {
+            (label, ...args) => {
                 const stmts = [];
                 const saved = [];
 
                 // copy arguments into parameters
-                for (let i = 0; i < args.length; i++) {
-                    const paramType = node.fn._type.params[i];
-                    const reg = node.fn._decl.params[i]._reg;
+                for (let i = 0; i < args.length; i++)
+                    stmts.push(new Copy(args[i]).into(fn.params[i]._reg));
 
-                    stmts.push(new Copy(args[i]).into(reg));
+                if (fn._inline) { // already visited and small
+                    stmts.push(...fn._bodyInstructions);
+                } else {
+                    stmts.push(new Call(label));
                 }
 
                 stmts.push(
-                    // call function
-                    new Call(fn),
                     // save return value (hopefully elided)
-                    new Copy(this.getReturnRegister(node._type)).into(result)
+                    new Copy(this.getReturnRegister(fn)).into(result)
                 );
 
                 return new Exp(result, stmts);
@@ -437,24 +440,35 @@ class IRGenerator extends Visitor {
     }
     Function(fn) {
         this.functions.push(fn);
-        const body = [
+        fn._bodyInstructions = this.visit(fn.body);
+        const small = fn._bodyInstructions.length <= IRGenerator.INLINE_THRESHOLD;
+        fn._inline = (small || !!fn.inline) && !fn._recursive && !fn._indirect;
+        
+        // if this is only called in a intra-function context, its parameters/return are local
+        if (fn._inline) {
+            fn._returnReg.global = false;
+            for (const param of fn.params)
+                param._reg.global = false;
+        }
+
+        const stmts = [
             new LabelDecl(fn._labels.entry),
-            ...this.visit(fn.body),
+            ...fn._bodyInstructions,
             new Return()
         ];
         this.functions.pop();
-        return body;
+        return stmts;
     }
     Variable(variable) {
         return [];
     }
     root(root) {
-        return [
-            root._entry,
-            ...root.decls.filter(fn => fn !== root._entry)
-        ]
-            .filter(decl => decl instanceof AST.Function)
-            .map(decl => this.visit(decl));
+        const leafToRoot = [...breadth(root._entry, root._callGraph, false)].reverse();
+
+        const fns = leafToRoot.map(fn => this.visit(fn));
+        fns.unshift(this.visit(root._entry));
+
+        return fns;
     }
 }
 
@@ -465,6 +479,7 @@ const assignRegisters = root => {
     });
 
     root.forEach(AST.Function, fn => {
+        fn._returnReg = new Register(fn._type.result, true, `${fn.name}_ret`);
         for (let i = 0; i < fn.params.length; i++) {
             const param = fn.params[i];
             param._reg = new Register(param._type, true, `${fn.name}_${param.name}`);

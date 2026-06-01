@@ -41,7 +41,7 @@
 				"match": "\\b(if|else|for|break|continue|while|return|continuing)\\b|\\?|:"
 			}, {
 				"name": "keyword.other.directive",
-				"match": "\\b(include)\\b"
+				"match": "\\b(include|inline)\\b"
 			}, {
 				"name": "storage.type",
 				"match": "\\b(int|bool|void|fixed|class)\\b|\\$"

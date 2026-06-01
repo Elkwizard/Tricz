@@ -110,7 +110,7 @@ Continuing = "continuing" body:Statement
 	Param = type:Type name:identifier
 	Variable = $Param ("=" value:Expression)? ";"
 	@begin Scope
-		Function = result:Type name:identifier "(" params:Param[","] ")" body:Block
+		Function = inline:"inline"? result:Type name:identifier "(" params:Param[","] ")" body:Block
 	@end
 
 	Declaration = Function | Variable

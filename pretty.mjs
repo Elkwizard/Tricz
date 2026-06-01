@@ -150,7 +150,8 @@ class PrettyPrinter extends Visitor {
     Param({ type, name }) {
         this.tag`${type} ${name}`;
     }
-    Function({ result, name, params, body }) {
+    Function({ inline, result, name, params, body }) {
+        if (inline) this.print(styleText("magenta", "inline "));
         this.tag`${result} ${styleText("green", name)}(${[params, ", "]}) ${body}`;
     }
     root({ includes, decls }) {

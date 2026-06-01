@@ -1,4 +1,5 @@
 import { AST } from "./ast.mjs";
+import { breadth } from "./dependency.mjs";
 import exportGraph from "./dot.mjs";
 import { ArrayType, FunctionType, PointerType, PrimitiveType, Type } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
@@ -9,7 +10,7 @@ class TypeChecker extends Visitor {
         super();
         this.functions = [];
         this.loops = [];
-        this.calls = new Map();
+        this.callGraph = new Map();
     }
     visit(node) {
         return node._type ??= super.visit(node);
@@ -174,9 +175,9 @@ class TypeChecker extends Visitor {
         return arrType.element;
     }
     addCall(caller, callee) {
-        if (!this.calls.has(caller))
-            this.calls.set(caller, new Set());
-        this.calls.get(caller).add(callee);
+        if (!this.callGraph.has(caller))
+            this.callGraph.set(caller, new Set());
+        this.callGraph.get(caller).add(callee);
     }
     Call(call) {
         const { fn, args } = call;
@@ -288,28 +289,6 @@ class TypeChecker extends Visitor {
     Variable(variable) {
         return this.visit(variable.type);
     }
-    getCallable(fn) {
-        const found = new Set();
-        let toExplore = new Set([fn]);
-
-        while (toExplore.size) {
-            const toExploreNext = new Set();
-
-            for (const root of toExplore) {
-                const neighbors = this.calls.get(root) ?? new Set();
-                for (const neighbor of neighbors) {
-                    if (!found.has(neighbor)) {
-                        found.add(neighbor);
-                        toExploreNext.add(neighbor);
-                    }
-                }
-            }
-
-            toExplore = toExploreNext;
-        }
-
-        return found;
-    }
     Function(fn) {
         fn._type = new FunctionType(
             this.visit(fn.result),
@@ -324,15 +303,23 @@ class TypeChecker extends Visitor {
         this.functions.pop();
         this.loops.pop();
 
-        fn._callable = this.getCallable(fn);
-
         return fn._type;
     }
-    root({ decls }) {
-        for (const decl of decls)
+    root(root) {
+        for (const decl of root.decls)
             this.visit(decl);
 
-        exportGraph(this.calls, "calls.dot", true);
+        // update recursion information in second pass
+        for (const decl of root.decls) {
+            if (decl instanceof AST.Function) {
+                decl._callable = new Set(breadth(decl, this.callGraph, false));
+                decl._recursive = decl._callable.has(decl);
+            }
+        }
+
+        root._callGraph = this.callGraph;
+
+        exportGraph(this.callGraph, "calls.dot", true);
     }
     getArithmeticType(node) {
         const type = this.visit(node);

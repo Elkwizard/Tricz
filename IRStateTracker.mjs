@@ -135,13 +135,11 @@ export class IRStateTracker {
 
                 this.knownRegisters.set(dst, expr);
             }
-        } else 
-        //     if (stmt instanceof Call || stmt instanceof RecCall) {
-        //     for (const reg of [...this.knownRegisters.keys()])
-        //         if (reg.global || this.addressed.has(reg))
-        //             this.alter(reg);
-        // } else
-            if (stmt instanceof Store || stmt instanceof Branch || stmt instanceof LabelDecl) {
+        } else if (stmt instanceof Call || stmt instanceof RecCall) {
+            for (const reg of this.possibleDeps.nodes)
+                if (reg && (reg.global || this.addressed.has(reg)))
+                    this.alter(reg);
+        } else if (stmt instanceof Store || stmt instanceof Branch || stmt instanceof LabelDecl) {
             this.alterAll();
         } else if (stmt instanceof Pop) {
             this.alter(stmt.value);

@@ -4,23 +4,7 @@ export class DependencyGraph {
         this.nodeToDependents = new Map();
     }
     getAllDependencies(node) {
-        const found = new Set();
-
-        let toExplore = new Set([node]);
-        while (toExplore.size) {
-            const toExploreNext = new Set();
-            for (const node of toExplore) {
-                if (!found.has(node)) {
-                    found.add(node);
-
-                    for (const dependency of this.getDependencies(node))
-                        toExploreNext.add(dependency);
-                }
-            }
-            toExplore = toExploreNext;
-        }
-
-        return found;
+        return new Set(breadth(node, this.nodeToDependencies, true));
     }
     addDependency(dependent, dependency) {
         if (!this.nodeToDependencies.has(dependent))
@@ -61,5 +45,31 @@ export class DependencyGraph {
                     dependency => `${node} -> ${dependency}`
                 ))
         ].map(line => `  ${line}`).join("\n");
+    }
+}
+
+export function* breadth(root, adjList, inclusive = false) {
+    const found = new Set();
+
+    if (inclusive) {
+        found.add(root);
+        yield root;
+    }
+
+    let toExplore = new Set([root]);
+    while (toExplore.size) {
+        const toExploreNext = new Set();
+        for (const node of toExplore) {
+            if (!adjList.has(node)) continue;
+
+            for (const neighbor of adjList.get(node)) {
+                if (!found.has(neighbor)) {
+                    found.add(neighbor);
+                    toExploreNext.add(neighbor);
+                    yield neighbor;
+                }
+            }
+        }
+        toExplore = toExploreNext;
     }
 }

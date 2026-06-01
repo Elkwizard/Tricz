@@ -464,7 +464,7 @@ class ZEZGenerator {
             src = this.getLiteralValue(src);
             dst = this.getLiteralValue(dst);
     
-            return src < dst || src >= dst + size;
+            return src >= dst && src < dst + size;
         }
 
         if (this.isDirect(src) || this.isDirect(dst))

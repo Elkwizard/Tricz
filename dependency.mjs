@@ -48,7 +48,7 @@ export class DependencyGraph {
     }
 }
 
-export function* breadth(root, adjList, inclusive = false) {
+export function* breadth(root, adjList, inclusive) {
     const found = new Set();
 
     if (inclusive) {

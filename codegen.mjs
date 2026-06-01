@@ -201,11 +201,11 @@ class ZEZGenerator {
         return operand instanceof Address || operand instanceof Constant;
     }
     createSpecializedExpression(src, resolution, dst) {
-        if (dst.size > 1) return null;
-
         if (src instanceof Copy)
             return resolution.get(src.target);
         
+        if (dst.size > 1) return null;
+
         if (src instanceof Load)
             return new SymbolicDeref(
                 resolution.get(src.target)

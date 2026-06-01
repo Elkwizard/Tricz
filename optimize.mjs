@@ -260,7 +260,7 @@ const propagateAndFold = (fn, analysis) => {
     for (let i = 0; i < fn.length; i++) {
         const stmt = fn[i];
         const wideReads = new Set();
-        // if (stmt instanceof TAC && stmt.src instanceof Copy) wideReads.add(stmt.src.target);
+        if (stmt instanceof TAC && stmt.src instanceof Copy) wideReads.add(stmt.src.target);
         const resolution = tracker.resolveStatement(stmt, wideReads);
         
         const propagated = propagateStatement(stmt, resolution);

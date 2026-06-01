@@ -1,8 +1,11 @@
 import config from "./config.mjs";
 import { DependencyGraph } from "./dependency.mjs";
-import { Binary, Branch, Copy, LabelDecl, Load, Negate, Operand, Pop, Protect, Store, TAC, Unary } from "./ir.mjs";
+import { Binary, Branch, Call, Copy, LabelDecl, Load, Negate, Operand, Pop, Protect, RecCall, Store, TAC, Unary } from "./ir.mjs";
 
 export class IRStateTracker {
+    /**
+     * @param {Set<Register>} addressed 
+     */
     constructor(addressed) {
         this.definiteDeps = new DependencyGraph();
         this.possibleDeps = new DependencyGraph();
@@ -132,6 +135,10 @@ export class IRStateTracker {
 
                 this.knownRegisters.set(dst, expr);
             }
+        } else if (stmt instanceof Call || stmt instanceof RecCall) {
+            for (const reg of [...this.knownRegisters.keys()])
+                if (reg.global || this.addressed.has(reg))
+                    this.alter(reg);
         } else if (stmt instanceof Store || stmt instanceof Branch || stmt instanceof LabelDecl) {
             this.alterAll();
         } else if (stmt instanceof Pop) {

@@ -3,7 +3,7 @@ import { AST } from "./ast.mjs";
 import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.mjs";
-import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop, Protect } from "./ir.mjs";
+import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop, Protect, RecCall } from "./ir.mjs";
 import { breadth } from "./dependency.mjs";
 
 const { make } = AST;
@@ -190,7 +190,7 @@ class IRGenerator extends Visitor {
         return this.returnRegisters.get(type);
     }
     getReturnRegister(fn) {
-        if (fn._indirect || fn._recursive)
+        if (fn._indirect)
             return this.getIndirectReturnRegister(fn._type.result);
 
         return fn._returnReg;
@@ -325,15 +325,11 @@ class IRGenerator extends Visitor {
         const caller = this.functions.at(-1);
         const result = new Register(node._type, false, "call");
 
-        if (
-            node._indirect ||
-            node.fn._decl._indirect ||
-            node.fn._decl._recursive
-        ) {
-            node.error("Indirect or recursive calls are not supported");
+        if (node._indirect || node.fn._decl._indirect) {
+            node.error("Indirect calls are not supported");
         }
 
-        // best case: non-recursive call to direct function
+        // best case: call to direct function
         const fn = node.fn._decl;
         return Exp.merge(
             (label, ...args) => {
@@ -356,6 +352,8 @@ class IRGenerator extends Visitor {
                     );
                     this.functions.pop();
                     this.inlineReturnLabels.pop();
+                } else if (fn._callable.has(caller)) {
+                    stmts.push(new RecCall(label));
                 } else {
                     stmts.push(new Call(label));
                 }
@@ -449,7 +447,7 @@ class IRGenerator extends Visitor {
                 new Store(target, temp)
             ]),
             this.addr.visit(inc.target)
-        )
+        );
     }
     Sum(sum) {
         return Exp.of(Add, sum._type, this.visit(sum.left), this.visit(sum.right));

@@ -233,6 +233,19 @@ export class Call extends Branch {
     }
 }
 
+export class RecCall extends Branch {
+    constructor(fn) {
+        super();
+        this.fn = fn;
+    }
+    get reads() {
+        return [this.fn];
+    }
+    toString() {
+        return `${styleText("magenta", "Recursive Call")} ${this.fn}`;
+    }
+}
+
 export class StackOperation extends Statement {
     constructor(value) {
         super();

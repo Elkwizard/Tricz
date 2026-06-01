@@ -20,7 +20,7 @@ const logPhase = (phase, data) => {
     console.log(`=== ${phase.toUpperCase()} ===`);
 
     if (Array.isArray(data)) {
-        console.log(ir.map(fn => fn.join("\n")).join("\n\n"));
+        console.log(data.map(fn => fn.join("\n")).join("\n\n"));
     } else {
         console.log(prettyPrint(data));
     }

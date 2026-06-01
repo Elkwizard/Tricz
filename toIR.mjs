@@ -167,6 +167,7 @@ class IRGenerator extends Visitor {
         this.jump = new JumpGenerator(this);
         this.returnRegisters = new ValueMap();
         this.functions = [];
+        this.loops = [];
     }
     getIndirectReturnRegister(type) {
         if (!this.returnRegisters.has(type))
@@ -226,21 +227,34 @@ class IRGenerator extends Visitor {
     Continuing(stmt) {
         return this.visit(stmt.body);
     }
+    getLoopLabels(loop) {
+        return this.loops.findLast(ctx => ctx.loop === loop).labels;
+    }
     While(loop) {
-        return [
-            new Jump(loop._labels.check),
-            new LabelDecl(loop._labels.start),
+        const labels = {
+            start: new Label(),
+            continuing: new Label(),
+            check: new Label(),
+            end: new Label()
+        };
+        this.loops.push({ loop, labels });
+        const stmts = [
+            new Jump(labels.check),
+            new LabelDecl(labels.start),
             ...this.visit(loop.body),
-            new LabelDecl(loop._labels.continuing),
+            new LabelDecl(labels.continuing),
             ...(loop.continuing ? this.visit(loop.continuing) : []),
-            new LabelDecl(loop._labels.check),
+            new LabelDecl(labels.check),
             ...this.jump.visit(
                 loop.condition,
-                loop._labels.start,
-                loop._labels.end
+                labels.start,
+                labels.end
             ),
-            new LabelDecl(loop._labels.end)
+            new LabelDecl(labels.end)
         ];
+        this.loops.pop();
+        
+        return stmts;
     }
     If(stmt) {
         return this.conditional(
@@ -250,10 +264,10 @@ class IRGenerator extends Visitor {
         );
     }
     Break(stmt) {
-        return [new Jump(stmt._loop._labels.end)];
+        return [new Jump(this.getLoopLabels(stmt._loop).end)];
     }
     Continue(stmt) {
-        return [new Jump(stmt._loop._labels.continuing)]
+        return [new Jump(this.getLoopLabels(stmt._loop).continuing)]
     }
     Return(node) {
         const stmts = [];
@@ -308,7 +322,7 @@ class IRGenerator extends Visitor {
                     stmts.push(new Copy(args[i]).into(fn.params[i]._reg));
 
                 if (fn._inline) { // already visited and small
-                    stmts.push(...fn._bodyInstructions);
+                    stmts.push(...this.visit(fn.body));
                 } else {
                     stmts.push(new Call(label));
                 }
@@ -440,8 +454,8 @@ class IRGenerator extends Visitor {
     }
     Function(fn) {
         this.functions.push(fn);
-        fn._bodyInstructions = this.visit(fn.body);
-        const small = fn._bodyInstructions.length <= IRGenerator.INLINE_THRESHOLD;
+        const bodyStmts = this.visit(fn.body);
+        const small = bodyStmts.length <= IRGenerator.INLINE_THRESHOLD;
         fn._inline = (small || !!fn.inline) && !fn._recursive && !fn._indirect;
         
         // if this is only called in a intra-function context, its parameters/return are local
@@ -453,7 +467,7 @@ class IRGenerator extends Visitor {
 
         const stmts = [
             new LabelDecl(fn._labels.entry),
-            ...fn._bodyInstructions,
+            ...bodyStmts,
             new Return()
         ];
         this.functions.pop();
@@ -465,7 +479,11 @@ class IRGenerator extends Visitor {
     root(root) {
         const leafToRoot = [...breadth(root._entry, root._callGraph, false)].reverse();
 
-        const fns = leafToRoot.map(fn => this.visit(fn));
+        const fns = [];
+        for (const fn of leafToRoot) {
+            const code = this.visit(fn);
+            if (!fn._inline) fns.push(code);
+        }
         fns.unshift(this.visit(root._entry));
 
         return fns;
@@ -491,14 +509,6 @@ const assignLabels = root => {
     root.forEach(AST.Function, fn => {
         fn._labels = {
             entry: new Label(true, fn.name)
-        };
-    });
-    root.forEach(AST.While, loop => {
-        loop._labels = {
-            start: new Label(),
-            continuing: new Label(),
-            check: new Label(),
-            end: new Label()
         };
     });
 };

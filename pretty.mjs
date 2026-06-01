@@ -69,6 +69,9 @@ class PrettyPrinter extends Visitor {
     PropertyAccess({ obj, field }) {
         this.tag`${obj}.${field}`;
     }
+    Protect({ value }) {
+        this.tag`${styleText("magenta", "protect")}(${value})`;
+    }
     // types
     TypeReference({ name }) {
         this.print(name);

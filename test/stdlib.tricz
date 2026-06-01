@@ -3,5 +3,5 @@ void print(int x) {
 }
 
 int read() {
-    return @(-2 as &int);
+    return protect(@(-2 as &int));
 }

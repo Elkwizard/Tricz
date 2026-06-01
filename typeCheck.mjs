@@ -94,6 +94,9 @@ class TypeChecker extends Visitor {
 
         return new ArrayType(elementType, elements.length);
     }
+    Protect(node) {
+        return this.visit(node.value);
+    }
     Reference(node) {
         const { _decl } = node;
         if (_decl instanceof AST.While)

@@ -526,6 +526,9 @@ class ZEZGenerator {
     Copy(size, dst, src) {
         return this.copyExpr(src, this.genExpr(dst));
     }
+    Protect(size, dst, src) {
+        return this.Copy(size, dst, src);
+    }
     Load(size, dst, addr) {
         return this.copyMemory(
             size, this.genExpr(addr), this.genExpr(dst)

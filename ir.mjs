@@ -322,6 +322,7 @@ export class Binary extends Operator {
 export class Copy extends Unary { }
 export class Negate extends Unary { }
 export class Load extends Unary { }
+export class Protect extends Unary { }
 
 export class Add extends Binary { }
 export class Multiply extends Binary { }

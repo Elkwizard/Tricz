@@ -46,7 +46,8 @@ identifier = /[\w\d_]+/
 
 	Nested = "(" replace:Expression ")"
     Array = "[" elements:Expression[","] "]"
-	BaseExpression = Nested | Literal | Array | Sign | Reference
+    Protect = "protect" "(" value:Expression ")"
+	BaseExpression = Nested | Literal | Array | Protect | Reference
 
 	CallSuffix = "(" args:Expression[","] ")"
 	SubscriptSuffix = "[" index:Expression "]"

@@ -3,7 +3,7 @@ import { AST } from "./ast.mjs";
 import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.mjs";
-import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop } from "./ir.mjs";
+import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop, Protect } from "./ir.mjs";
 import { breadth } from "./dependency.mjs";
 
 const { make } = AST;
@@ -399,6 +399,9 @@ class IRGenerator extends Visitor {
             (...elements) => new Exp(new List(elements)),
             ...array.elements.map(el => this.visit(el))
         )
+    }
+    Protect(node) {
+        return Exp.of(Protect, node._type, this.visit(node.value));
     }
     Product(product) {
         const left = this.visit(product.left);

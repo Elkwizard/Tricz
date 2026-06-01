@@ -168,6 +168,7 @@ class IRGenerator extends Visitor {
         this.returnRegisters = new ValueMap();
         this.functions = [];
         this.loops = [];
+        this.inlineReturnLabels = [];
     }
     getIndirectReturnRegister(type) {
         if (!this.returnRegisters.has(type))
@@ -270,16 +271,22 @@ class IRGenerator extends Visitor {
         return [new Jump(this.getLoopLabels(stmt._loop).continuing)]
     }
     Return(node) {
+        const fn = this.functions.at(-1);
+        
         const stmts = [];
         if (node.value) {
-            const fn = this.functions.at(-1);
             const returnType = node.value._targetType;
             stmts.unshift(
                 ...this.visit(node.value)
                     .copyInto(this.getReturnRegister(fn))
             );
         }
-        stmts.push(new Return());
+
+        if (fn._inline) {
+            stmts.push(new Jump(this.inlineReturnLabels.at(-1)));
+        } else {
+            stmts.push(new Return());
+        }
         return stmts;
     }
     Reference({ _decl }) {
@@ -322,7 +329,17 @@ class IRGenerator extends Visitor {
                     stmts.push(new Copy(args[i]).into(fn.params[i]._reg));
 
                 if (fn._inline) { // already visited and small
-                    stmts.push(...this.visit(fn.body));
+                    const returnLabel = new Label(false, `return_${fn.name}`);
+
+                    // create inline call context
+                    this.inlineReturnLabels.push(returnLabel);
+                    this.functions.push(fn);
+                    stmts.push(
+                        ...this.visit(fn.body),
+                        new LabelDecl(returnLabel)
+                    );
+                    this.functions.pop();
+                    this.inlineReturnLabels.pop();
                 } else {
                     stmts.push(new Call(label));
                 }

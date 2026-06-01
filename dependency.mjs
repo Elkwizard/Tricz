@@ -3,8 +3,14 @@ export class DependencyGraph {
         this.nodeToDependencies = new Map();
         this.nodeToDependents = new Map();
     }
+    get nodes() {
+        return new Set([
+            ...this.nodeToDependents.keys(),
+            ...this.nodeToDependencies.keys()
+        ]);
+    }
     getAllDependencies(node) {
-        return new Set(breadth(node, this.nodeToDependencies, true));
+        return new Set(breadth(new Set([node]), this.nodeToDependencies, true));
     }
     addDependency(dependent, dependency) {
         if (!this.nodeToDependencies.has(dependent))
@@ -48,15 +54,29 @@ export class DependencyGraph {
     }
 }
 
-export function* breadth(root, adjList, inclusive) {
+export function reverseGraph(adjList) {
+    const revAdjList = new Map();
+
+    for (const [node, neighbors] of adjList) {
+        for (const neighbor of neighbors) {
+            if (!revAdjList.has(neighbor)) revAdjList.set(neighbor, new Set());
+            revAdjList.get(neighbor).add(node);
+        }
+    }
+
+    return revAdjList;
+}
+
+export function* breadth(toExplore, adjList, inclusive) {
     const found = new Set();
 
     if (inclusive) {
-        found.add(root);
-        yield root;
+        for (const root of toExplore) {
+            found.add(root);
+            yield root;
+        }
     }
 
-    let toExplore = new Set([root]);
     while (toExplore.size) {
         const toExploreNext = new Set();
         for (const node of toExplore) {

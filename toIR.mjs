@@ -4,7 +4,7 @@ import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
 import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.mjs";
 import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, List, Remainder, CompareJump, LabelDecl, Push, Pop, Protect, RecCall } from "./ir.mjs";
-import { breadth } from "./dependency.mjs";
+import { breadth, reverseGraph } from "./dependency.mjs";
 
 const { make } = AST;
 
@@ -530,7 +530,11 @@ class IRGenerator extends Visitor {
         return [];
     }
     root(root) {
-        const leafToRoot = [...breadth(root._entry, root._callGraph, false)].reverse();
+        // traverse call graph from leaves
+        const leaves = new Set(root.decls.filter(decl => decl instanceof AST.Function))
+            .difference(root._callGraph);
+        const leafToRoot = new Set(breadth(leaves, reverseGraph(root._callGraph), true));
+        leafToRoot.delete(root._entry);
 
         const fns = [];
         for (const fn of leafToRoot) {

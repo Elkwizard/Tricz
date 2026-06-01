@@ -350,7 +350,7 @@ class TypeChecker extends Visitor {
         // update recursion information in second pass
         for (const decl of root.decls) {
             if (decl instanceof AST.Function) {
-                decl._callable = new Set(breadth(decl, this.callGraph, false));
+                decl._callable = new Set(breadth(new Set([decl]), this.callGraph, false));
                 decl._recursive = decl._callable.has(decl);
             }
         }

@@ -205,6 +205,14 @@ class IRGenerator extends Visitor {
 
         return fn._returnReg;
     }
+    checkInline(fn) {
+        if (!fn._inline) {
+            fn._inline = false;
+            return false;
+        }
+        
+        return true;
+    }
     convert(exp, srcType, targetType) {
         // the only runtime consequences of type conversions are fixed-to-int conversions (and vice versa)
         if (targetType === PrimitiveType.FIXED && srcType.integral) {
@@ -350,7 +358,7 @@ class IRGenerator extends Visitor {
                 for (let i = 0; i < args.length; i++)
                     stmts.push(new Copy(args[i]).into(fn.params[i]._reg));
 
-                if (fn._inline) { // already visited and small
+                if (this.checkInline(fn)) { // already visited and small
                     const returnLabel = new Label(false, `return_${fn.name}`);
 
                     // create inline call context
@@ -406,7 +414,7 @@ class IRGenerator extends Visitor {
         return Exp.merge(
             (...elements) => new Exp(new List(elements)),
             ...array.elements.map(el => this.visit(el))
-        )
+        );
     }
     Protect(node) {
         return Exp.of(Protect, node._type, this.visit(node.value));
@@ -500,10 +508,11 @@ class IRGenerator extends Visitor {
         this.functions.push(fn);
         const bodyStmts = this.visit(fn.body);
         const small = bodyStmts.length <= IRGenerator.INLINE_THRESHOLD;
-        // fn._inline = (small || !!fn.inline) && !fn._recursive && !fn._indirect;
+        fn._inline ??= (small || !!fn.inline) && !fn._recursive && !fn._indirect;
         
         // if this is only called in a intra-function context, its parameters/return are local
-        if (fn._inline) {
+        if (this.checkInline(fn)) {
+            console.log("INLINING " + fn.name);
             fn._returnReg.global = false;
             for (const param of fn.params)
                 param._reg.global = false;
@@ -526,7 +535,7 @@ class IRGenerator extends Visitor {
         const fns = [];
         for (const fn of leafToRoot) {
             const code = this.visit(fn);
-            if (!fn._inline) fns.push(code);
+            if (!this.checkInline(fn)) fns.push(code);
         }
         fns.unshift(this.visit(root._entry));
 

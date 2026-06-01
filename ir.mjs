@@ -113,7 +113,8 @@ export class List extends Operand {
         return this.elements.flatMap(el => el.labels);
     }
     toString() {
-        return `${styleText("blue", "[")}${this.elements.join(", ")}${styleText("blue", "]")}`;
+        const content = this.elements.join(", ");
+        return `${styleText("blue", "[")}${content.length > 100 ? "..." : content}${styleText("blue", "]")}`;
     }
     equals(other) {
         return  other instanceof List &&

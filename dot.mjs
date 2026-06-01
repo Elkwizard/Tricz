@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import { stripVTControlCharacters } from "node:util";
+import url from "node:url";
+import path from "node:path";
 
 export default function exportGraph(graph, name, code = false) {
     let result = "digraph {\n";
@@ -18,5 +20,9 @@ export default function exportGraph(graph, name, code = false) {
         }
     }
     result += "}";
-    fs.writeFileSync(name, stripVTControlCharacters(result), "utf-8");
+    fs.writeFileSync(
+        path.join(path.dirname(url.fileURLToPath(import.meta.url)), name),
+        stripVTControlCharacters(result),
+        "utf-8"
+    );
 }

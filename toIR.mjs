@@ -7,18 +7,6 @@ import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate
 
 const { make } = AST;
 
-// representation of a parameter-type/index
-class ParamSpec {
-    constructor(index, type) {
-        this.index = index;
-        this.type = type;
-    }
-    equals(other) {
-        return this.index === other.index &&
-            this.type.equals(other.type);
-    }
-}
-
 class Exp {
     constructor(value, stmts = []) {
         this.value = value;
@@ -281,7 +269,7 @@ class IRGenerator extends Visitor {
         if (_decl instanceof AST.Function)
             return new Exp(_decl._labels.entry);
         if (_decl instanceof AST.Param)
-            return new Exp(this.getParamRegister(_decl._spec));
+            return new Exp(_decl._reg);
         return new Exp(_decl._reg);
     }
     Subscript(node) {
@@ -296,7 +284,16 @@ class IRGenerator extends Visitor {
     Call(node) {
         const caller = this.functions.at(-1);
 
-        // need to save variables
+        if (
+            node._indirect ||
+            node.fn._decl._indirect ||
+            node.fn._decl._callable.has(node.fn._decl) ||
+            node.fn._decl._callable.has(null)
+        ) {
+            node.error("Indirect or recursive calls are not supported");
+        }
+
+        // best case: non-recursive call to direct function
         const result = new Register(node._type, false, "call");
         return Exp.merge(
             (fn, ...args) => {
@@ -306,16 +303,7 @@ class IRGenerator extends Visitor {
                 // copy arguments into parameters
                 for (let i = 0; i < args.length; i++) {
                     const paramType = node.fn._type.params[i];
-                    const spec = new ParamSpec(i, paramType);
-                    const reg = this.getParamRegister(spec);
-
-                    if (args[i] === reg) continue;
-    
-                    if (i < caller.params.length) {
-                        const callerSpec = caller.params[i]._spec;
-                        stmts.push(new Push(reg));
-                        saved.push(reg);
-                    }
+                    const reg = node.fn._decl.params[i]._reg;
 
                     stmts.push(new Copy(args[i]).into(reg));
                 }
@@ -326,9 +314,6 @@ class IRGenerator extends Visitor {
                     // save return value (hopefully elided)
                     new Copy(this.getReturnRegister(node._type)).into(result)
                 );
-
-                for (let i = saved.length - 1; i >= 0; i--)
-                    stmts.push(new Pop(saved[i]));
 
                 return new Exp(result, stmts);
             },
@@ -482,7 +467,7 @@ const assignRegisters = root => {
     root.forEach(AST.Function, fn => {
         for (let i = 0; i < fn.params.length; i++) {
             const param = fn.params[i];
-            param._spec = new ParamSpec(i, param._type);
+            param._reg = new Register(param._type, true, `${fn.name}_${param.name}`);
         }
     });
 };

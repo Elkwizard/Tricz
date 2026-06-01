@@ -1,5 +1,7 @@
 export default {
     log: {
-        stateTracking: false
+        stateTracking: false,
+        codegen: false,
+        phases: ["lower", "resolved", "typed"]
     }
 };

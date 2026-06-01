@@ -7,6 +7,7 @@ import exportGraph from "./dot.mjs";
 import { DependencyGraph } from "./dependency.mjs";
 import { IRStateTracker, SymbolicExpression, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
 import { findAddressed } from "./analyze.mjs";
+import config from "./config.mjs";
 
 class SymbolicUnary extends SymbolicExpression {
     /**
@@ -78,7 +79,8 @@ class ZEZGenerator {
         // assign 0=2 addresses to remaining registers
         this.assignRegisterAddresses();
 
-        console.log("=== MARKED NECESSARY ===");
+        if (this.hasLogging)
+            console.log("=== MARKED NECESSARY ===");
 
         exportGraph(this.stateTracker.possibleDeps.nodeToDependencies, "dependency.dot");
 
@@ -89,7 +91,8 @@ class ZEZGenerator {
                 .filter(stmt => this.isStatementNecessary(stmt))
                 .flatMap(stmt => {
                     const code = this.generateCode(stmt);
-                    console.log(styleText("grey", `\tEMIT ${stripVTControlCharacters(code.join(" "))}`));
+                    if (this.hasLogging)
+                        console.log(styleText("grey", `\tEMIT ${stripVTControlCharacters(code.join(" "))}`));
                     return code;
                 })
             );
@@ -98,6 +101,9 @@ class ZEZGenerator {
             ...this.generateSetup(),
             ...programInstructions
         ]);
+    }
+    get hasLogging() {
+        return config.log?.codegen;
     }
     locateSymbols() {
         this.labels = new Set();
@@ -152,7 +158,8 @@ class ZEZGenerator {
                     this.indirectAddrs.add(addr);
             }
 
-            console.log(`${register} => ${this.addresses.get(register)}`);
+            if (this.hasLogging)
+                console.log(`${register} => ${this.addresses.get(register)}`);
         }
 
         this.builtin = {};
@@ -244,7 +251,8 @@ class ZEZGenerator {
         const resolution = this.resolutions.get(stmt);
         const operands = stmt.reads.map(op => resolution.get(op));
 
-        console.log(`${stmt} {${operands.join(", ")}}`);
+        if (this.hasLogging)
+            console.log(`${stmt} {${operands.join(", ")}}`);
 
         if (stmt instanceof TAC)
             return this[stmt.src.constructor.name](

@@ -114,7 +114,12 @@ class JumpGenerator extends Visitor {
     }
     visit(node, ifTrue, ifFalse) {
         this.jumpStates.push({ ifTrue, ifFalse });
-        const result = super.visit(node);
+        let result;
+        if (node.constructor.name in this) {
+            result = super.visit(node);
+        } else {
+            result = this.handleExpression(node);
+        }
         this.jumpStates.pop();
         return result;
     }
@@ -128,6 +133,11 @@ class JumpGenerator extends Visitor {
         switch (logic.op) {
             case "&&": return [
                 ...this.visit(logic.left, afterFirst, this.ifFalse),
+                new LabelDecl(afterFirst),
+                ...this.visit(logic.right, this.ifTrue, this.ifFalse)
+            ];
+            case "||": return [
+                ...this.visit(logic.left, this.ifTrue, afterFirst),
                 new LabelDecl(afterFirst),
                 ...this.visit(logic.right, this.ifTrue, this.ifFalse)
             ];
@@ -158,7 +168,7 @@ class JumpGenerator extends Visitor {
             new Jump(this.ifFalse)
         ];
     }
-    Reference(node) {
+    handleExpression(node) {
         const ref = this.ir.visit(node);
         return [
             ...ref.stmts,
@@ -490,7 +500,7 @@ class IRGenerator extends Visitor {
         this.functions.push(fn);
         const bodyStmts = this.visit(fn.body);
         const small = bodyStmts.length <= IRGenerator.INLINE_THRESHOLD;
-        fn._inline = (small || !!fn.inline) && !fn._recursive && !fn._indirect;
+        // fn._inline = (small || !!fn.inline) && !fn._recursive && !fn._indirect;
         
         // if this is only called in a intra-function context, its parameters/return are local
         if (fn._inline) {

@@ -17,7 +17,9 @@ const extractInitializer = variable => {
 const lowerGlobalVars = root => {
     const globalVars = root.decls.filter(decl => decl instanceof AST.Variable);
 
-    const initializers = globalVars.map(extractInitializer);
+    const initializers = globalVars
+        .map(extractInitializer)
+        .filter(Boolean);
     
     // put global variable initializers into main
     root._entry.body.stmts.unshift(...initializers);

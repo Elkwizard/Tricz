@@ -533,13 +533,18 @@ class IRGenerator extends Visitor {
         // traverse call graph from leaves
         const leaves = new Set(root.decls.filter(decl => decl instanceof AST.Function))
             .difference(root._callGraph);
-        const leafToRoot = new Set(breadth(leaves, reverseGraph(root._callGraph), true));
+        const fromLeaves = new Set(breadth(leaves, reverseGraph(root._callGraph), true));
+        const fromRoot = new Set(breadth(new Set([root._entry]), root._callGraph, true));
+        const leafToRoot = new Set([...fromLeaves].filter(fn => fromRoot.has(fn)));
         leafToRoot.delete(root._entry);
 
         const fns = [];
         for (const fn of leafToRoot) {
             const code = this.visit(fn);
-            if (!this.checkInline(fn)) fns.push(code);
+            if (!this.checkInline(fn)) {
+                console.log("INCLUDING " + fn.name);
+                fns.push(code);
+            }
         }
         fns.unshift(this.visit(root._entry));
 

@@ -90,7 +90,7 @@ export class Constant extends Operand {
     }
 }
 
-export class List extends Operand {
+export class Tuple extends Operand {
     /**
      * @param {Operand[]} elements 
      */
@@ -117,7 +117,7 @@ export class List extends Operand {
         return `${styleText("blue", "[")}${content.length > 100 ? "..." : content}${styleText("blue", "]")}`;
     }
     equals(other) {
-        return  other instanceof List &&
+        return  other instanceof Tuple &&
                 other.elements.length === this.elements.length &&
                 other.elements.every((el, i) => el.equals(this.elements[i]));
     }

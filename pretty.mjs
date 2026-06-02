@@ -72,6 +72,9 @@ class PrettyPrinter extends Visitor {
     Protect({ value }) {
         this.tag`${styleText("magenta", "protect")}(${value})`;
     }
+    StructLiteral({ struct, fields }) {
+        this.tag`${struct}::{${[fields, ", "]}}`;
+    }
     // types
     TypeReference({ name }) {
         this.print(name);

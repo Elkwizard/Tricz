@@ -76,6 +76,29 @@ class TypeChecker extends Visitor {
     Bool() {
         return PrimitiveType.BOOL;
     }
+    StructLiteral(node) {
+        const { struct, fields } = node;
+
+        const structType = this.visit(struct);
+        if (!(structType instanceof StructType))
+            struct.error(`Cannot create struct literal for non-struct type '${structType}'`);
+
+        const { schema } = structType;
+
+        const fieldTypes = [...schema.fields.values()].map(field => field.type);
+
+        if (fields.length !== fieldTypes.length)
+            node.error(`Wrong number of field initializers provided. Got ${fields.length}, ${fieldTypes.length} required`);
+
+        for (let i = 0; i < fields.length; i++) {
+            this.assertConvertible(
+                fields[i], fieldTypes[i],
+                (src, dst) => `Cannot initialize field of type '${dst}' with value of type '${src}'`
+            );
+        }
+
+        return structType;
+    }
     Array(node) {
         const { elements } = node;
 

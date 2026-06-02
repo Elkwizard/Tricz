@@ -45,9 +45,10 @@ identifier = /[\w\d_]+/
 	Literal = Int | Fixed | Bool
 
 	Nested = "(" replace:Expression ")"
+    StructLiteral = struct:TypeReference "::" "{" fields:Expression[","] "}"
     Array = "[" elements:Expression[","] "]"
     Protect = "protect" "(" value:Expression ")"
-	BaseExpression = Nested | Literal | Array | Protect | Reference
+	BaseExpression = Nested | Literal | StructLiteral | Array | Protect | Reference
 
 	CallSuffix = "(" args:Expression[","] ")"
 	SubscriptSuffix = "[" index:Expression "]"

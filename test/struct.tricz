@@ -29,10 +29,7 @@ void printPoint(Point p) {
 }
 
 int main() {
-    Tuple t;
-    t.p.x = 5;
-    t.p.y = 8;
-    t.z = 11;
+    Tuple t = Tuple::{Point::{5, 8}, 11};
 
     printPoint(t.p);
 

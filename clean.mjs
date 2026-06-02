@@ -18,6 +18,12 @@ export default function clean(root) {
     root.forEach(AST.Function, node => {
         node.params ??= [];
     });
+    root.forEach(AST.Array, node => {
+        node.elements ??= [];
+    });
+    root.forEach(AST.StructLiteral, node => {
+        node.fields ??= [];
+    });
 
     // clean up term-related parsing oddities
     root = root.transform(AST.Term, node => {

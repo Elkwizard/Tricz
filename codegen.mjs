@@ -1,5 +1,5 @@
 import { findLinearBlocks } from "./cfg.mjs";
-import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, List, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary } from "./ir.mjs";
+import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, Tuple, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary } from "./ir.mjs";
 import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import * as zez from "./zez.mjs";
 import { stripVTControlCharacters, styleText } from "node:util";
@@ -319,7 +319,7 @@ class ZEZGenerator {
                 return new zez.Placeholder(operand);
 
             // must be 1 size, per precondition
-            if (operand instanceof List)
+            if (operand instanceof Tuple)
                 return this.genExpr(new SymbolicOperand(operand.elements[0]));
         }
 
@@ -387,7 +387,7 @@ class ZEZGenerator {
             if (sym instanceof SymbolicOperand) {
                 const { operand } = sym;
 
-                if (operand instanceof List) {
+                if (operand instanceof Tuple) {
                     return operand.elements.flatMap(
                         el => getElements(new SymbolicOperand(el))
                     );

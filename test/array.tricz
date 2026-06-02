@@ -7,7 +7,7 @@ int index(&int arr, int y) {
 void main() {
     int[] x = [1, 2, 3];
     int[][] y = [[4, 5, 6], x];
-    &int z = &y;
+    &int z = &y as &void;
     &(int[3]) w = &x;
 
     print(read() + 4);

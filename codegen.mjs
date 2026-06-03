@@ -593,29 +593,81 @@ class ZEZGenerator {
 
         return flipSign ? zez.negate(sign) : sign;
     }
-    fixSign(dst, expr) {
+    fixSign(dst, expr, changeSign = true) {
         const { mathSign } = this.builtin;
 
         return [
             ...zez.setLiteral(dst, expr),
             ...zez.addLiteral(zez.ZERO, zez.sign(dst)),
             zez.SKIP,
-            new zez.Break(),
+            zez.BREAK,
             // if expr < 0
-            ...zez.addLiteral(mathSign, zez.ONE),
+            ...(changeSign ? zez.addLiteral(mathSign, zez.ONE) : []),
             ...zez.setLiteral(dst, zez.negate(expr)),
-            new zez.Break(),
+            zez.BREAK,
             // if expr = 0
             zez.NOOP,
-            new zez.Break()
+            zez.BREAK
         ];
+    }
+    copySigned(dst, src) {
+        return [
+            ...zez.add(zez.ZERO, this.builtin.mathSign),
+            zez.BREAK,
+            // if a >= 0 && b >= 0
+            zez.SKIP,
+            zez.BREAK,
+            // if (a < 0) != (b < 0)
+            ...zez.setLiteral(dst, zez.negate(zez.deref(src))),
+            zez.SKIP,
+            zez.BREAK,
+            // if a < 0 && b < 0
+            ...zez.set(dst, src),
+            zez.BREAK  
+        ];
+    }
+    Multiply(size, dst, a, b) {
+        dst = this.genExpr(dst);
+        a = this.genExpr(a);
+        b = this.genExpr(b);
+
+        const { math, mathA, mathIndex, mathTempSign, mathSign } = this.builtin;
+
+        const insts = [];
+
+        // setup
+        insts.push(
+            ...zez.setLiteral(math, zez.ZERO),
+            ...zez.setLiteral(mathSign, zez.ZERO),
+            ...this.fixSign(mathA, a),
+            ...this.fixSign(mathIndex, b),
+        );
+
+        // main loop
+        insts.push(
+            zez.BREAK,
+            ...zez.subtractLiteral(zez.ZERO, zez.sign(mathIndex)),
+            zez.SKIP,
+            zez.BREAK,
+            // inx > 0
+            ...zez.subtractLiteral(mathIndex, zez.ONE),
+            ...zez.add(math, mathA),
+            ...zez.subtractLiteral(zez.ZERO, zez.literal(2)),
+            zez.BREAK,
+            // inx = 0
+        );
+
+        // apply sign
+        insts.push(...this.copySigned(dst, math));
+
+        return insts;
     }
     divmod(remainder, dst, a, b) {
         dst = this.genExpr(dst);
         a = this.genExpr(a);
         b = this.genExpr(b);
 
-        const { math, mathA, mathB, mathIndex, mathTempSign, mathSign } = this.builtin;
+        const { math, mathB, mathIndex, mathTempSign, mathSign } = this.builtin;
 
         const insts = [];
 
@@ -629,7 +681,7 @@ class ZEZGenerator {
             // mathSign = (a < 0)
             insts.push(
                 ...this.fixSign(math, a),
-                ...zez.setLiteral(mathB, b)
+                ...this.fixSign(mathB, b, false)
             );
         } else {
             // mathSign = (a < 0) + (b < 0)
@@ -641,53 +693,37 @@ class ZEZGenerator {
 
         // main loop
         insts.push(
-            new zez.Break(),
-            ...zez.set(mathTempSign, math),
-            ...zez.subtract(mathTempSign, mathB),
-            ...zez.addLiteral(zez.ZERO, zez.sign(mathTempSign)),
-            zez.SKIP,
-            new zez.Break(),
-            // if math < mathB
-            ...zez.addLiteral(zez.ZERO, zez.literal(2)),
-            new zez.Break(),
-            // if math = mathB
-            zez.NOOP,
-            new zez.Break(),
-            // if math > mathB
+            zez.BREAK,
             ...zez.subtract(math, mathB),
+            ...zez.subtractLiteral(zez.ZERO, zez.sign(math)),
+            zez.SKIP,
+            zez.BREAK,
+            // if math > 0
+            zez.NOOP, zez.BREAK,
+            // if math = 0
             ...zez.addLiteral(mathIndex, zez.ONE),
-            ...zez.subtractLiteral(zez.ZERO, zez.literal(4)),
-            new zez.Break(),
+            ...zez.subtractLiteral(zez.ZERO, zez.literal(3)),
+            zez.BREAK
         );
 
         // apply sign
         if (remainder) {
             insts.push(
+                // fix final value
+                ...zez.add(math, mathB),
+                // jump
                 ...zez.add(zez.ZERO, mathSign),
-                new zez.Break(),
+                zez.BREAK,
                 // if a >= 0
                 ...zez.set(dst, math),
                 zez.SKIP,
-                new zez.Break(),
+                zez.BREAK,
                 // if a < 0
                 ...zez.setLiteral(dst, zez.negate(zez.deref(math))),
-                new zez.Break()
+                zez.BREAK
             );
         } else {
-            insts.push(
-                ...zez.add(zez.ZERO, mathSign),
-                new zez.Break(),
-                // if a >= 0 && b >= 0
-                zez.SKIP,
-                new zez.Break(),
-                // if (a < 0) != (b < 0)
-                ...zez.setLiteral(dst, zez.negate(zez.deref(mathIndex))),
-                zez.SKIP,
-                new zez.Break(),
-                // if a < 0 && b < 0
-                ...zez.set(dst, mathIndex),
-                new zez.Break()
-            );
+            insts.push(...this.copySigned(dst, mathIndex));
         }
 
         return insts;
@@ -713,7 +749,7 @@ class ZEZGenerator {
         insts.push(
             ...zez.addLiteral(zez.ZERO, sign),
             zez.SKIP,
-            new zez.Break()
+            zez.BREAK
         );
 
         const jump = () => this.setZeroLiteral(label);
@@ -721,22 +757,22 @@ class ZEZGenerator {
         switch (stmt.compare) {
             case ">":
             case "<": {
-                insts.push(...jump(), new zez.Break());
-                insts.push(zez.NOOP, new zez.Break());
+                insts.push(...jump(), zez.BREAK);
+                insts.push(zez.NOOP, zez.BREAK);
             }; break;
             case ">=":
             case "<=": {
-                insts.push(...jump(), new zez.Break());
-                insts.push(...jump(), new zez.Break());
+                insts.push(...jump(), zez.BREAK);
+                insts.push(...jump(), zez.BREAK);
             }; break;
             case "==": {
-                insts.push(zez.SKIP, new zez.Break());
-                insts.push(...jump(), new zez.Break());
+                insts.push(zez.SKIP, zez.BREAK);
+                insts.push(...jump(), zez.BREAK);
             }; break;
             case "!=": {
-                insts.push(...jump(), new zez.Break());
-                insts.push(zez.SKIP, new zez.Break());
-                insts.push(...jump(), new zez.Break());
+                insts.push(...jump(), zez.BREAK);
+                insts.push(zez.SKIP, zez.BREAK);
+                insts.push(...jump(), zez.BREAK);
             }; break;
         }
 
@@ -745,7 +781,7 @@ class ZEZGenerator {
     Jump(stmt, label) {
         return [
             ...this.setZeroLiteral(this.genExpr(label)),
-            new zez.Break()
+            zez.BREAK
         ];
     }
     Call(stmt, fn) {
@@ -756,14 +792,14 @@ class ZEZGenerator {
             ),
             ...zez.addLiteral(this.builtin.sp, zez.ONE),
             ...this.setZeroLiteral(this.genExpr(fn)),
-            new zez.Break()
+            zez.BREAK
         ];
     }
     Return(stmt) {
         return [
             ...zez.addLiteral(this.builtin.sp, zez.literal(-1)),
             ...this.setZeroLiteral(zez.deref(zez.deref(this.builtin.sp))),
-            new zez.Break()
+            zez.BREAK
         ];
     }
     substituteLabels(rawInstructions) {
@@ -773,7 +809,7 @@ class ZEZGenerator {
         for (const instruction of rawInstructions) {
             if (instruction instanceof Label) {
                 if (instructions.at(-1) instanceof zez.Instruction) {
-                    instructions.push(new zez.Break());
+                    instructions.push(zez.BREAK);
                     lineNumber++;
                 }
                 substitutions.set(instruction, zez.literal(lineNumber - 1));

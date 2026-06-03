@@ -5,6 +5,4 @@ int main() {
     int b = read();
     print(a / b);
     print(a % b);
-    int c = a % 10;
-    print(c);
 }

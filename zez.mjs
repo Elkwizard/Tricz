@@ -107,6 +107,7 @@ export const ONE = new Literal(1);
 
 export const NOOP = new Instruction(ZERO, ZERO);
 export const SKIP = new Instruction(ZERO, ONE);
+export const BREAK = new Break();
 
 export const deref = a => new Deref(a);
 export const literal = a => new Literal(a);

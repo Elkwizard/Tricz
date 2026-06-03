@@ -90,7 +90,7 @@
 		"identifiers": {
 			"patterns": [{
 				"name": "storage.type",
-				"match": "([_\\w\\d]+)(?=\\s+[_\\w\\d]+)"
+				"match": "([_\\w\\d]+)(?=\\s+([_\\w\\d]+|\\{))"
 			}, {
 				"name": "support.variable.property",
 				"match": "(?<=\\.\\s*)[_\\w\\d]+"

@@ -4,12 +4,19 @@ void main() {
     int x = 5;
     &int p = &x;
 
-    forget();
+    @(300 as &int) = 5;
 
     int y = @p;
     x = 6;
     int z = y;
     @(-1 as &int) += z;
+
+    int[] items = [1, 2, 3, 4];
+    @(&items as &void as &(int[3])) = @(&items[1] as &void as &(int[3]));
+
+    int q = items[3];
+    @(-1 as &int) += q;
+
 
 
     // &int x = 300;

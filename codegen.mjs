@@ -86,6 +86,7 @@ class ZEZGenerator {
 
         // generate code for each block, now that operands are resolved
         this.lineNumberSymbol = "ZERO";
+        this.bufferSymbol = "BUFFER";
         const programInstructions = blocks
             .flatMap(block => block
                 .filter(stmt => this.isStatementNecessary(stmt))
@@ -118,7 +119,7 @@ class ZEZGenerator {
         }
     }
     addBuiltinRegisters() {
-        this.bufferSize = Math.max(1, ...[...this.registers].map(reg => reg.type.size));
+        this.bufferSize = 0;
 
         const BUILTIN_REGISTERS = {
             sp: new PointerType(PrimitiveType.VOID),
@@ -129,8 +130,7 @@ class ZEZGenerator {
             mathB: PrimitiveType.INT,
             mathIndex: PrimitiveType.INT,
             mathTempSign: PrimitiveType.INT,
-            mathSign: PrimitiveType.INT,
-            buffer: new ArrayType(PrimitiveType.INT, this.bufferSize)
+            mathSign: PrimitiveType.INT
         };
 
         this.builtinRegisters = {};
@@ -168,7 +168,7 @@ class ZEZGenerator {
                 this.addresses.get(this.builtinRegisters[key])
             );
 
-        this.stackStart = next;
+        this.bufferStart = next;
     }
     /**
      * @param {Statement} stmt 
@@ -247,7 +247,7 @@ class ZEZGenerator {
         }
     }
     generateSetup() {
-        return zez.addLiteral(this.builtin.sp, zez.literal(this.stackStart));
+        return zez.addLiteral(this.builtin.sp, zez.literal(this.bufferStart + this.bufferSize));
     }
     generateCode(stmt) {
         const resolution = this.resolutions.get(stmt);
@@ -340,6 +340,10 @@ class ZEZGenerator {
             next: [...zez.addLiteral(this.builtin[kind], zez.ONE)]
         };
     }
+    getBuffer(size) {
+        if (size > this.bufferSize) this.bufferSize = size;
+        return new zez.Placeholder(this.bufferSymbol);
+    }
     /**
      * Generates the 0=2 AST to copy a given series of 1-register symbolic expressions into a destination address
      * @param {zez.Expression} exprs 
@@ -357,11 +361,13 @@ class ZEZGenerator {
         }
 
         // copy to intermediate buffer
-        if (!noAlias)
+        if (!noAlias) {
+            const buffer = this.getBuffer(exprs.length);
             return [
-                ...this.copyExprs(exprs, this.builtin.buffer, true),
-                ...this.copyMemory(exprs.length, this.builtin.buffer, destination, true)
+                ...this.copyExprs(exprs, buffer, true),
+                ...this.copyMemory(exprs.length, buffer, destination, true)
             ];
+        }
 
         const dstWalker = this.createMemoryWalker(destination, "dst");
         const insts = [...dstWalker.init];
@@ -413,9 +419,6 @@ class ZEZGenerator {
      * @param {boolean} noAlias
      */
     copyMemory(size, src, dst, noAlias = false) {
-        if (size > this.bufferSize)
-            throw new Error(`${size} > ${this.bufferSize}`);
-
         if (size === 1)
             return this.safeSetLiteral(dst, zez.deref(src), noAlias);
 
@@ -423,9 +426,10 @@ class ZEZGenerator {
 
         if (!noAlias) {
             // copy to intermediate buffer
+            const buffer = this.getBuffer(size);
             return [
-                ...this.copyMemory(size, src, this.builtin.buffer, true),
-                ...this.copyMemory(size, this.builtin.buffer, dst, true)
+                ...this.copyMemory(size, src, buffer, true),
+                ...this.copyMemory(size, buffer, dst, true)
             ];
         }
 
@@ -492,11 +496,13 @@ class ZEZGenerator {
 
         noAlias ||= !this.mightAliasValues(zez.deref(dst), src);
 
-        if (!noAlias)
+        if (!noAlias) {
+            const buffer = this.getBuffer(1);
             return [
-                ...zez.setLiteral(this.builtin.buffer, src),
-                ...zez.set(dst, this.builtin.buffer)
+                ...zez.setLiteral(buffer, src),
+                ...zez.set(dst, buffer)
             ];
+        }
 
         return zez.setLiteral(dst, src);
 
@@ -554,10 +560,11 @@ class ZEZGenerator {
             return zez.addLiteral(dst, a);
         
         if (this.mightAliasValues(dstValue, a) || this.mightAliasValues(dstValue, b)) {
+            const buffer = this.getBuffer(1);
             return [
-                ...zez.setLiteral(this.builtin.buffer, a),
-                ...zez.addLiteral(this.builtin.buffer, b),
-                ...zez.setLiteral(dst, zez.deref(this.builtin.buffer))
+                ...zez.setLiteral(buffer, a),
+                ...zez.addLiteral(buffer, b),
+                ...zez.setLiteral(dst, zez.deref(buffer))
             ];
         }
         
@@ -819,6 +826,8 @@ class ZEZGenerator {
                     lineNumber++;
             }
         }
+
+        substitutions.set(this.bufferSymbol, zez.literal(this.bufferStart));
 
         lineNumber = 0;
         for (const instruction of instructions) {

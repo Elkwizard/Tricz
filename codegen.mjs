@@ -1,5 +1,5 @@
 import { findLinearBlocks } from "./cfg.mjs";
-import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, Tuple, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary } from "./ir.mjs";
+import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, Tuple, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary, Call } from "./ir.mjs";
 import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
 import * as zez from "./zez.mjs";
 import { stripVTControlCharacters, styleText } from "node:util";
@@ -286,6 +286,9 @@ class ZEZGenerator {
         if (stmt instanceof Branch)
             return this[stmt.constructor.name](stmt, ...operands);
         
+        if (stmt instanceof Call)
+            return this.Call(...operands);
+
         if (stmt instanceof LabelDecl)
             return [stmt.label];
     }
@@ -791,7 +794,7 @@ class ZEZGenerator {
             zez.BREAK
         ];
     }
-    Call(stmt, fn) {
+    Call(fn) {
         return [
             ...zez.setLiteral(
                 zez.deref(this.builtin.sp),

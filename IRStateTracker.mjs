@@ -53,6 +53,14 @@ export class IRStateTracker {
         for (const dependent of dependents)
             this.alter(dependent);
     }
+    // reconstructs definiteDeps from knownRegisters
+    rebuild() {
+        this.definiteDeps.clear();
+
+        for (const [reg, value] of this.knownRegisters)
+            for (const dep of value.registers)
+                this.definiteDeps.addDependency(reg, dep);
+    }
     /**
      * @param {Statement} stmt
      * @param {Set<Operand>} wideReads

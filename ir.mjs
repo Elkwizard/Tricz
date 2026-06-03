@@ -184,16 +184,33 @@ export class LabelDecl extends Statement {
 
 export class Branch extends Statement { }
 
-export class Jump extends Branch {
+export class TargetBranch extends Branch {
     constructor(label) {
         super();
         this.label = label;
     }
+}
+
+export class Jump extends TargetBranch {
     get reads() {
         return [this.label];
     }
     toString() {
         return `${styleText("magenta", "Jump")} ${this.label}`;
+    }
+}
+
+export class CompareJump extends TargetBranch {
+    constructor(value, compare, label) {
+        super(label);
+        this.value = value;
+        this.compare = compare;
+    }
+    get reads() {
+        return [this.value, this.label];
+    }
+    toString() {
+        return `${styleText("magenta", "Jump")} ${this.label} ${styleText("magenta", "If")} ${this.value} ${this.compare} 0`;
     }
 }
 
@@ -206,22 +223,7 @@ export class Return extends Branch {
     }
 }
 
-export class CompareJump extends Branch {
-    constructor(value, compare, label) {
-        super();
-        this.value = value;
-        this.compare = compare;
-        this.label = label;
-    }
-    get reads() {
-        return [this.value, this.label];
-    }
-    toString() {
-        return `${styleText("magenta", "Jump")} ${this.label} ${styleText("magenta", "If")} ${this.value} ${this.compare} 0`;
-    }
-}
-
-export class Call extends Branch {
+export class Call extends Statement {
     constructor(fn) {
         super();
         this.fn = fn;
@@ -234,7 +236,7 @@ export class Call extends Branch {
     }
 }
 
-export class RecCall extends Branch {
+export class RecCall extends Statement {
     constructor(fn) {
         super();
         this.fn = fn;

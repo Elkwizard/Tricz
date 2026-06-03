@@ -148,7 +148,7 @@ class ZEZGenerator {
         let next = 1;
         this.indirectAddrs = new Set();
         this.addresses = new Map();
-        for (const register of this.registers) {
+        for (const register of [...this.registers].sort((a, b) => a.size - b.size)) {
             if (!register.global) continue;
             this.addresses.set(register, next);
             

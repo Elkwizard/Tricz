@@ -514,7 +514,7 @@ class IRGenerator extends Visitor {
         this.functions.push(fn);
         const bodyStmts = this.visit(fn.body);
         const small = bodyStmts.length <= IRGenerator.INLINE_THRESHOLD;
-        fn._inline ??= (small || !!fn.inline) && !fn._recursive && !fn._indirect;
+        fn._inline ??= (small || !!fn.inline) && !fn._recursive && !fn._indirect && !fn._entry;
         
         // if this is only called in a intra-function context, its parameters/return are local
         if (this.checkInline(fn)) {

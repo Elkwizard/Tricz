@@ -159,6 +159,13 @@ class JumpGenerator extends Visitor {
             flipped
         );
 
+        if (node.op === "!=")
+            return [
+                ...diff.stmts,
+                new CompareJump(diff.value, "==", this.ifFalse),
+                new Jump(this.ifTrue)
+            ];
+
         return [
             ...diff.stmts,
             new CompareJump(

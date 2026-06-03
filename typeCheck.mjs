@@ -1,5 +1,5 @@
 import { AST } from "./ast.mjs";
-import { breadth } from "./dependency.mjs";
+import { addEdge, breadth } from "./dependency.mjs";
 import exportGraph from "./dot.mjs";
 import { ArrayType, FunctionType, PointerType, PrimitiveType, StructSchema, StructType, Type } from "./types.mjs";
 import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
@@ -236,9 +236,7 @@ class TypeChecker extends Visitor {
         return schema.fields.get(field).type;
     }
     addCall(caller, callee) {
-        if (!this.callGraph.has(caller))
-            this.callGraph.set(caller, new Set());
-        this.callGraph.get(caller).add(callee);
+        addEdge(this.callGraph, caller, callee);
     }
     Call(call) {
         const { fn, args } = call;

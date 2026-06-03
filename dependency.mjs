@@ -13,13 +13,8 @@ export class DependencyGraph {
         return new Set(breadth(new Set([node]), this.nodeToDependencies, true));
     }
     addDependency(dependent, dependency) {
-        if (!this.nodeToDependencies.has(dependent))
-            this.nodeToDependencies.set(dependent, new Set());
-        this.nodeToDependencies.get(dependent).add(dependency);
-
-        if (!this.nodeToDependents.has(dependency))
-            this.nodeToDependents.set(dependency, new Set());
-        this.nodeToDependents.get(dependency).add(dependent);
+        addEdge(this.nodeToDependencies, dependent, dependency);
+        addEdge(this.nodeToDependents, dependency, dependent);
     }
     clear() {
         this.nodeToDependencies.clear();
@@ -52,6 +47,11 @@ export class DependencyGraph {
                 ))
         ].map(line => `  ${line}`).join("\n");
     }
+}
+
+export function addEdge(adjList, a, b) {
+    if (!adjList.has(a)) adjList.set(a, new Set());
+    adjList.get(a).add(b);
 }
 
 export function reverseGraph(adjList) {

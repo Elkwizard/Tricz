@@ -91,7 +91,7 @@ Continuing = "continuing" body:Statement
 
 @begin Statement
     Label = (name:identifier ":")?
-    If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:Block | ifTrue:Statement)
+    If = "if" "(" condition:Expression ")" (ifTrue:Block "else" ifFalse:(If | Block) | ifTrue:Statement)
     @begin Declaration
         While = $Label "while" "(" condition:Expression ")" body:Statement continuing:Continuing?
         For = $Label "for" "(" (init:Variable | ExpressionStatement | ";") condition:Expression? ";" next:Expression ")" body:Statement

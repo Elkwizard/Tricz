@@ -1,4 +1,5 @@
 import { findAddressed } from "./analyze.mjs";
+// import { createCFG } from "./cfg.mjs";
 import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Push, Register, Return, StackOperation, Store, TAC, Unary } from "./ir.mjs";
 import { IRStateTracker, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
 import { $ } from "./pattern.mjs";
@@ -87,53 +88,23 @@ const factorProducts = fn => {
         if (!(a instanceof Constant)) continue;
         if (b === a) continue;
 
-        // create registers
-        const result = new Register(PrimitiveType.INT, false, "result*");
-        const temp = new Register(PrimitiveType.INT, false, "temp*");
+        // create accumulator register
+        const acc = new Register(PrimitiveType.INT, false, "acc*");
 
-        // perform factorization
+        // perform decomposition into powers of 2
         let factor = Math.abs(a.value);
 
-        if (!factor) {
-            fn[i] = new Copy(new Constant(0)).into(dst);
-            continue;
+        const stmts = [
+            (a.value < 0 ? new Negate(b) : new Copy(b)).into(acc),
+            new Copy(new Constant(0)).into(dst),
+        ];
+
+        while (factor) {
+            if (factor & 1)
+                stmts.push(new Add(dst, acc).into(dst));
+            factor >>= 1;
+            stmts.push(new Add(acc, acc).into(acc));
         }
-        
-        const stmts = [(a.value > 0 ? new Copy(b) : new Negate(b)).into(result)];
-
-        for (let n = 2; factor > 1; n++) {
-            while (factor % n === 0) {
-                factor /= n;
-
-                // multiply by n
-                let doubles = Math.round(Math.log2(n));
-                let correction = n - 2 ** doubles;
-
-                if (n === 3) {
-                    correction = 1;
-                    doubles--;
-                }
-
-                if (doubles > 30 || Math.abs(correction) > 30) {
-                    stmts.push(new Multiply(result, new Constant(n)).into(result));
-                    continue;
-                }
-
-                if (correction < 0) {
-                    stmts.push(new Negate(result).into(temp));
-                } else if (correction > 0) {
-                    stmts.push(new Copy(result).into(temp));
-                }
-
-                for (let i = 0; i < doubles; i++)
-                    stmts.push(new Add(result, result).into(result));
-
-                for (let i = 0; i < Math.abs(correction); i++)
-                    stmts.push(new Add(result, temp).into(result));
-            }
-        }
-
-        stmts.push(new Copy(result).into(dst));
 
         // replace instruction
         fn.splice(i, 1, ...stmts);
@@ -311,5 +282,8 @@ export default function optimize(fn, analysis) {
         factorProducts(fn);
     }
     removeDeadAssignments(fn, analysis);
+
+    // createCFG(fn);
+
     return fn;
 }

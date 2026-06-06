@@ -14,7 +14,7 @@ int main() {
 
     int value = read();
     value = value * 231840 + 4;
-    int notValue = (value + 3) * 8736;
+    int notValue = (value + 3) * -8736;
     print(notValue);
     print(value);
     // int odd = value * 30;

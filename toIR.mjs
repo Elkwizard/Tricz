@@ -106,14 +106,14 @@ class JumpGenerator extends Visitor {
         this.ir = ir;
         this.jumpStates = [];
     }
-    get ifTrue() {
-        return this.jumpStates.at(-1).ifTrue;
+    get target() {
+        return this.jumpStates.at(-1).target;
     }
-    get ifFalse() {
-        return this.jumpStates.at(-1).ifFalse;
+    get jumpIfTrue() {
+        return this.jumpStates.at(-1).jumpIfTrue;
     }
-    visit(node, ifTrue, ifFalse) {
-        this.jumpStates.push({ ifTrue, ifFalse });
+    visit(node, target, jumpIfTrue) {
+        this.jumpStates.push({ target, jumpIfTrue });
         let result;
         if (node.constructor.name in this) {
             result = super.visit(node);
@@ -124,29 +124,31 @@ class JumpGenerator extends Visitor {
         return result;
     }
     Bool(bool) {
-        return [new Jump(
-            bool.value === "true" ? this.ifTrue : this.ifFalse
-        )];
+        if (this.jumpIfTrue === (bool.value === "true"))
+            return [new Jump(this.target)];
     }
     Logic(logic) {
-        const afterFirst = new Label();
-        switch (logic.op) {
-            case "&&": return [
-                ...this.visit(logic.left, afterFirst, this.ifFalse),
-                new LabelDecl(afterFirst),
-                ...this.visit(logic.right, this.ifTrue, this.ifFalse)
-            ];
-            case "||": return [
-                ...this.visit(logic.left, this.ifTrue, afterFirst),
-                new LabelDecl(afterFirst),
-                ...this.visit(logic.right, this.ifTrue, this.ifFalse)
-            ];
-        }
+        const after = new Label();
 
-        logic.error(`MISSING LOGIC ` + logic.op);
+        // De Morgan's Law
+        const flip = logic.op === "||";
+
+        // flip = T, JIT = T => OR = OR(a, b)
+        // flip = T, JIT = F => NOR = AND(!a, !b)
+        // flip = F, JIT = T => AND = AND(a, b)
+        // flip = F, JIT = F => NAND = OR(!a, !b)
+
+        return flip !== this.jumpIfTrue ? [
+            ...this.visit(logic.left, after, flip),
+            ...this.visit(logic.right, this.target, !flip),
+            new LabelDecl(after)
+        ] : [
+            ...this.visit(logic.left, this.target, flip),
+            ...this.visit(logic.right, this.target, flip)
+        ];
     }
     Not(not) {
-        return this.visit(not.target, this.ifFalse, this.ifTrue);
+        return this.visit(not.target, this.target, !this.jumpIfTrue);
     }
     Compare(node) {
         const flipped = Exp.of(
@@ -159,28 +161,35 @@ class JumpGenerator extends Visitor {
             flipped
         );
 
-        if (node.op === "!=")
-            return [
-                ...diff.stmts,
-                new CompareJump(diff.value, "==", this.ifFalse),
-                new Jump(this.ifTrue)
-            ];
+        let { op } = node;
+
+        if (!this.jumpIfTrue)
+            op = {
+                "==": "!=",
+                "!=": "==",
+                "<": ">=",
+                "<=": ">",
+                ">": "<=",
+                ">=": "<"
+            }[op];
 
         return [
             ...diff.stmts,
             new CompareJump(
-                diff.value, node.op,
-                this.ifTrue
-            ),
-            new Jump(this.ifFalse)
+                diff.value, op,
+                this.target
+            )
         ];
     }
     handleExpression(node) {
         const ref = this.ir.visit(node);
         return [
             ...ref.stmts,
-            new CompareJump(ref.value, ">", this.ifTrue),
-            new Jump(this.ifFalse)
+            new CompareJump(
+                ref.value,
+                this.jumpIfTrue ? ">" : "<=",
+                this.target
+            )
         ];
     }
 }
@@ -239,12 +248,10 @@ class IRGenerator extends Visitor {
         return exp;
     }
     conditional(condition, ifTrue, ifFalse) {
-        const ifLabel = new Label();
         const elseLabel = new Label();
         const endLabel = new Label();
         return [
-            ...this.jump.visit(condition, ifLabel, elseLabel),
-            new LabelDecl(ifLabel),
+            ...this.jump.visit(condition, elseLabel, false),
             ...ifTrue,
             new Jump(endLabel),
             new LabelDecl(elseLabel),
@@ -287,7 +294,7 @@ class IRGenerator extends Visitor {
             ...this.jump.visit(
                 loop.condition,
                 labels.start,
-                labels.end
+                true
             ),
             new LabelDecl(labels.end)
         ];
@@ -406,6 +413,9 @@ class IRGenerator extends Visitor {
         return this.handleBoolean(node);
     }
     Logic(node) {
+        return this.handleBoolean(node);
+    }
+    Not(node) {
         return this.handleBoolean(node);
     }
     Ternary(node) {

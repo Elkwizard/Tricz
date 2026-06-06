@@ -5,88 +5,97 @@ import { IRStateTracker, SymbolicOperand, SymbolicOperator } from "./IRStateTrac
 import { $ } from "./pattern.mjs";
 import { PrimitiveType } from "./types.mjs";
 
-const simplifyStore = fn => {
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
+class Optimization {
+    constructor(stmts, analysis) {
+        this.stmts = stmts;
+        this.analysis = analysis;
+        this.setup();
+    }
+    setup() { }
+    evaluate(stmt, index) { }
+    apply() {
+        for (let i = 0; i < this.stmts.length; i++) {
+            const stmt = this.stmts[i];
+            const result = this.evaluate(stmt, i);
+            if (!result) continue;
+            if ("remove" in result) {
+                const replace = result.replace ?? [];
+                this.stmts.splice(i, result.remove, ...replace);
+                i += result.length - result.remove;
+            } else {
+                this.stmts.splice(i, 1, ...result);
+                i += result.length - 1;
+            }
+        }
+    }
+    static use(stmts, analysis) {
+        new this(stmts, analysis).apply();
+    }
+}
+
+class SimplifyStore extends Optimization {
+    evaluate(stmt) {
         if (
             stmt instanceof Store &&
             stmt.addr instanceof Address &&
             stmt.addr.register.size === stmt.src.size
         ) {
-            fn[i] = new Copy(stmt.src).into(stmt.addr.register);
+            return [new Copy(stmt.src).into(stmt.addr.register)];
         }
     }
-};
+}
 
-const simplifyLoad = fn => {
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
+class SimplifyLoad extends Optimization {
+    evaluate(stmt) {
         if (
             stmt instanceof TAC &&
             stmt.src instanceof Load &&
             stmt.src.target instanceof Address &&
             stmt.dst.size === stmt.src.target.register.size
         ) {
-            fn[i] = new Copy(stmt.src.target.register).into(stmt.dst);
+            return [new Copy(stmt.src.target.register).into(stmt.dst)];
         }
     }
-};
+}
 
-const removeUnusedLabels = fn => {
-    const usedLabels = new Set(fn.flatMap(stmt => stmt.labels));
-
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
+class RemoveUnusedLabels extends Optimization {
+    setup() {
+        this.usedLabels = new Set(this.stmts.flatMap(stmt => stmt.labels));
+    }
+    evaluate(stmt) {
         if (
             stmt instanceof LabelDecl &&
-            !usedLabels.has(stmt.label) &&
+            !this.usedLabels.has(stmt.label) &&
             !stmt.label.global
-        ) {
-            fn.splice(i, 1);
-            i--;
-        }
+        ) return [];
     }
-};
+}
 
-const removeDeadBlocks = fn => {
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
-        if (stmt instanceof Jump || stmt instanceof Return) {
-            let j = i + 1;
-            while (j < fn.length && !(fn[j] instanceof LabelDecl))
-                j++;
-            
-            let toRemove;
-            if (fn[j] instanceof LabelDecl) {
-                toRemove = j - i - 1;
-            } else {
-                toRemove = j - i;
-            }
-            fn.splice(i + 1, toRemove);
-            i = j - 1;
-        }
+class RemoveDeadBlocks extends Optimization {
+    evaluate(stmt, i) {
+        if (!(stmt instanceof Jump || stmt instanceof Return))
+            return;
+
+        const fn = this.stmts;
+        let j = i + 1;
+        while (j < fn.length && !(fn[j] instanceof LabelDecl))
+            j++;
+
+        if (fn[j] instanceof LabelDecl)
+            return { remove: j - i, replace: [stmt] };
+
+        return { remove: j - i + 1, replace: [stmt] };
     }
-};
+}
 
-export const orderCommutativeOperands = ([a, b]) => {
-    if (a instanceof Constant)
-        return [a, b];
-
-    if (b instanceof Constant)
-        return [b, a];
-
-    return [a, b];
-};
-
-const factorProducts = fn => {
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
-        if (!(stmt instanceof TAC)) continue;
+class FactorProducts extends Optimization {
+    evaluate(stmt) {
+        if (!(stmt instanceof TAC)) return;
         const { dst, src } = stmt;
-        if (!(src instanceof Multiply)) continue;
+        if (!(src instanceof Multiply)) return;
         const [a, b] = orderCommutativeOperands([src.a, src.b]);
-        if (!(a instanceof Constant)) continue;
-        if (b === a) continue;
+        if (!(a instanceof Constant)) return;
+        if (b === a) return;
 
         // create accumulator register
         const acc = new Register(PrimitiveType.INT, false, "acc*");
@@ -106,30 +115,35 @@ const factorProducts = fn => {
             stmts.push(new Add(acc, acc).into(acc));
         }
 
-        // replace instruction
-        fn.splice(i, 1, ...stmts);
-        i += stmts.length - 1;
+        return stmts;
     }
-};
+}
 
-const removeStupidJumps = fn => {
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
+class RemoveStupidJumps extends Optimization {
+    evaluate(stmt, i) {
         if (!(stmt instanceof Jump || stmt instanceof CompareJump))
-            continue;
+            return;
 
+        const fn = this.stmts;
         const { label } = stmt;
-
         const seen = new Set();
 
         for (let j = i + 1; fn[j] instanceof LabelDecl; j++)
             seen.add(fn[j].label);
 
-        if (seen.has(label)) {
-            fn.splice(i, 1);
-            i--;
-        }
+        if (seen.has(label))
+            return [];
     }
+}
+
+export const orderCommutativeOperands = ([a, b]) => {
+    if (a instanceof Constant)
+        return [a, b];
+
+    if (b instanceof Constant)
+        return [b, a];
+
+    return [a, b];
 };
 
 $.register(Add, orderCommutativeOperands);
@@ -144,16 +158,16 @@ const foldExpression = (() => {
     const patterns = [
         Add(Constant(x), Constant(y)) ,_=> new Copy(new Constant(_.x + _.y)),
         Add(Constant(0), x) ,_=> new Copy(_.x),
-        
+
         Multiply(Constant(0), a) ,_=> new Copy(new Constant(0)),
         Multiply(Constant(1), a) ,_=> new Copy(_.a),
         Multiply(Constant(-1), a) ,_=> new Negate(_.a),
         Multiply(Constant(x), Constant(y)) ,_=> new Copy(new Constant(_.x * _.y)),
-        
+
         Divide(a, Constant(1)) ,_=> new Copy(_.a),
         Divide(a, Constant(-1)) ,_=> new Negate(_.a),
         Divide(Constant(x), Constant(y)) ,_=> new Copy(new Constant(Math.trunc(_.x / _.y) || 0)),
-        
+
         Negate(Constant(x)) ,_=> new Copy(new Constant(-_.x)),
     ];
 
@@ -178,7 +192,7 @@ const propagateStatement = (stmt, resolution) => {
         let expr = resolution.get(stmt.src.target);
         if (!(expr instanceof SymbolicOperator))
             expr = new SymbolicOperator(Copy, [expr]);
-    
+
         return new expr.type(...expr.operands.map(op => op.operand)).into(stmt.dst);
     }
 
@@ -196,7 +210,7 @@ const propagateStatement = (stmt, resolution) => {
 
     if (stmt instanceof Store)
         return new Store(a, b);
-    
+
     if (stmt instanceof Push)
         return new Push(a);
 
@@ -206,7 +220,7 @@ const propagateStatement = (stmt, resolution) => {
     return stmt;
 }
 
-const foldStatement = (stmt) => {
+const foldStatement = stmt => {
     if (!(stmt instanceof TAC))
         return stmt;
 
@@ -218,70 +232,71 @@ const createStateTracker = (fn, analysis) => {
     return new IRStateTracker(addressed);
 };
 
-const propagateAndFold = (fn, analysis) => {
-    const tracker = createStateTracker(fn, analysis);
+class PropagateAndFold extends Optimization {
+    setup() {
+        this.tracker = createStateTracker(this.stmts, this.analysis);
+    }
+    apply() {
+        const fn = this.stmts;
+        for (let i = 0; i < fn.length; i++) {
+            const stmt = fn[i];
+            const wideReads = new Set();
+            if (stmt instanceof TAC && stmt.src instanceof Copy) wideReads.add(stmt.src.target);
+            const resolution = this.tracker.resolveStatement(stmt, wideReads);
 
-    const createSpecializedExpression = (src, resolution) => {
+            const propagated = propagateStatement(stmt, resolution);
+            const folded = foldStatement(propagated);
+            fn[i] = folded;
+
+            this.tracker.handleStatement(
+                folded,
+                this.tracker.resolveStatement(folded),
+                PropagateAndFold.createSpecializedExpression
+            );
+        }
+    }
+    static createSpecializedExpression(src, resolution) {
         if (src instanceof Copy)
             return resolution.get(src.target);
 
         return null;
-    };
-    
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
-        const wideReads = new Set();
-        if (stmt instanceof TAC && stmt.src instanceof Copy) wideReads.add(stmt.src.target);
-        const resolution = tracker.resolveStatement(stmt, wideReads);
-        
-        const propagated = propagateStatement(stmt, resolution);
-        const folded = foldStatement(propagated);
-        fn[i] = folded;
-
-        tracker.handleStatement(
-            folded,
-            tracker.resolveStatement(folded),
-            createSpecializedExpression
-        );
     }
-};
+}
 
-const removeDeadAssignments = (fn, analysis) => {
-    const tracker = createStateTracker(fn, analysis);
+class RemoveDeadAssignments extends Optimization {
+    setup() {
+        const fn = this.stmts;
+        const tracker = createStateTracker(fn, this.analysis);
 
-    for (const register of fn.flatMap(stmt => stmt.registers))
-        if (register.global)
-            tracker.addNecessary(register);
+        for (const register of fn.flatMap(stmt => stmt.registers))
+            if (register.global)
+                tracker.addNecessary(register);
 
-    for (const address of fn.flatMap(stmt => stmt.addresses))
-        tracker.addNecessary(address.register);
+        for (const address of fn.flatMap(stmt => stmt.addresses))
+            tracker.addNecessary(address.register);
 
-    for (const stmt of fn)
-        tracker.handleStatement(stmt, tracker.resolveStatement(stmt));
-    
-    const necessary = tracker.getNecessaryRegisters();
+        for (const stmt of fn)
+            tracker.handleStatement(stmt, tracker.resolveStatement(stmt));
 
-    for (let i = 0; i < fn.length; i++) {
-        const stmt = fn[i];
-
-        if (stmt instanceof TAC && !necessary.has(stmt.dst)) {
-            fn.splice(i, 1);
-            i--;
-        }
+        this.necessary = tracker.getNecessaryRegisters();
     }
-};
+    evaluate(stmt) {
+        if (stmt instanceof TAC && !this.necessary.has(stmt.dst))
+            return [];
+    }
+}
 
 export default function optimize(fn, analysis) {
     for (let n = 0; n < 2; n++) {
-        removeStupidJumps(fn);
-        simplifyStore(fn);
-        simplifyLoad(fn);
-        removeUnusedLabels(fn);
-        removeDeadBlocks(fn);
-        propagateAndFold(fn, analysis);
-        factorProducts(fn);
+        RemoveStupidJumps.use(fn, analysis);
+        SimplifyStore.use(fn, analysis);
+        SimplifyLoad.use(fn, analysis);
+        RemoveUnusedLabels.use(fn, analysis);
+        RemoveDeadBlocks.use(fn, analysis);
+        PropagateAndFold.use(fn, analysis);
+        FactorProducts.use(fn, analysis);
     }
-    removeDeadAssignments(fn, analysis);
+    RemoveDeadAssignments.use(fn, analysis);
 
     // createCFG(fn);
 

@@ -97,23 +97,51 @@ class FactorProducts extends Optimization {
         if (!(a instanceof Constant)) return;
         if (b === a) return;
 
-        // create accumulator register
-        const acc = new Register(PrimitiveType.INT, false, "acc*");
+        // create registers
+        const result = new Register(PrimitiveType.INT, false, "result*");
+        const temp = new Register(PrimitiveType.INT, false, "temp*");
 
         // perform decomposition into powers of 2
         let factor = Math.abs(a.value);
 
-        const stmts = [
-            (a.value < 0 ? new Negate(b) : new Copy(b)).into(acc),
-            new Copy(new Constant(0)).into(dst),
-        ];
+        if (!factor)
+            return [new Copy(new Constant(0)).into(dst)];
+        
+        const stmts = [(a.value > 0 ? new Copy(b) : new Negate(b)).into(result)];
 
-        while (factor) {
-            if (factor & 1)
-                stmts.push(new Add(dst, acc).into(dst));
-            factor >>= 1;
-            stmts.push(new Add(acc, acc).into(acc));
+        for (let n = 2; factor > 1; n++) {
+            while (factor % n === 0) {
+                factor /= n;
+
+                // multiply by n
+                let doubles = Math.round(Math.log2(n));
+                let correction = n - 2 ** doubles;
+
+                if (n === 3) {
+                    correction = 1;
+                    doubles--;
+                }
+
+                if (doubles > 30 || Math.abs(correction) > 30) {
+                    stmts.push(new Multiply(result, new Constant(n)).into(result));
+                    continue;
+                }
+
+                if (correction < 0) {
+                    stmts.push(new Negate(result).into(temp));
+                } else if (correction > 0) {
+                    stmts.push(new Copy(result).into(temp));
+                }
+
+                for (let i = 0; i < doubles; i++)
+                    stmts.push(new Add(result, result).into(result));
+
+                for (let i = 0; i < Math.abs(correction); i++)
+                    stmts.push(new Add(result, temp).into(result));
+            }
         }
+
+        stmts.push(new Copy(result).into(dst));
 
         return stmts;
     }

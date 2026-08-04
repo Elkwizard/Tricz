@@ -1,0 +1,33 @@
+include "stdlib";
+
+int factorial(int x) {
+    int result = 1;
+    for (int i = 2; i <= x; i++)
+        result *= i;
+    return result;
+}
+
+void printBool(bool x) {
+    print(x ? 100 : -100);
+}
+
+void main() {
+    print(factorial(read()));
+
+    bool x = true;
+    bool y = false;
+    if (!x) print(5);
+
+    printBool(x);
+    printBool(y);
+    printBool(x && y);
+    printBool((x || y));
+    printBool(!(x && y));
+    printBool(!(x || y));
+
+    if (!x && y)
+        print(10);
+
+    if (!(!x && y))
+        print(20);
+}

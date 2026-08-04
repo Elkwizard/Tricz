@@ -2,7 +2,7 @@ import { AST } from "./ast.js";
 import { addEdge, breadth } from "./dependency.js";
 import exportGraph from "./dot.js";
 import { ArrayType, FunctionType, PointerType, PrimitiveType, StructSchema, StructType, Type } from "./types.js";
-import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.js";
+import Visitor from "../Pipelang2/visitor.js";
 
 
 class TypeChecker extends Visitor {

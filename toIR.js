@@ -1,8 +1,8 @@
 import { styleText } from "node:util";
 import { AST } from "./ast.js";
 import { ArrayType, PointerType, PrimitiveType } from "./types.js";
-import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.js";
-import ValueMap from "/G:/My Drive/Desktop/Pipelang2/util/valueMap.js";
+import Visitor from "../Pipelang2/visitor.js";
+import ValueMap from "../Pipelang2/util/valueMap.js";
 import { Add, Address, Call, Copy, Constant, Jump, Label, Load, Multiply, Negate, Register, Return, Store, Divide, Tuple, Remainder, CompareJump, LabelDecl, Push, Pop, Protect, RecCall } from "./ir.js";
 import { breadth, reverseGraph } from "./dependency.js";
 

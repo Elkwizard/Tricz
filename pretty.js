@@ -1,5 +1,5 @@
-import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.js";
-import IndentedPrinter from "/G:/My Drive/Desktop/Pipelang2/util/indent.js";
+import Visitor from "../Pipelang2/visitor.js";
+import IndentedPrinter from "../Pipelang2/util/indent.js";
 import { AST } from "./ast.js";
 import { styleText } from "node:util";
 

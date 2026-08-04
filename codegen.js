@@ -1,13 +1,13 @@
-import { findLinearBlocks } from "./cfg.mjs";
-import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, Tuple, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary, Call } from "./ir.mjs";
-import { ArrayType, PointerType, PrimitiveType } from "./types.mjs";
-import * as zez from "./zez.mjs";
+import { findLinearBlocks } from "./cfg.js";
+import { Add, Address, Binary, Branch, CompareJump, Constant, Copy, Label, LabelDecl, Tuple, Load, Negate, Operand, Pop, Push, Register, StackOperation, Statement, Store, TAC, Unary, Call } from "./ir.js";
+import { ArrayType, PointerType, PrimitiveType } from "./types.js";
+import * as zez from "./zez.js";
 import { stripVTControlCharacters, styleText } from "node:util";
-import exportGraph from "./dot.mjs";
-import { DependencyGraph } from "./dependency.mjs";
-import { IRStateTracker, SymbolicExpression, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
-import { findAddressed } from "./analyze.mjs";
-import config from "./config.mjs";
+import exportGraph from "./dot.js";
+import { DependencyGraph } from "./dependency.js";
+import { IRStateTracker, SymbolicExpression, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.js";
+import { findAddressed } from "./analyze.js";
+import config from "./config.js";
 
 class SymbolicUnary extends SymbolicExpression {
     /**

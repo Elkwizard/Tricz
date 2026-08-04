@@ -1,4 +1,4 @@
-import { AST } from "./ast.mjs";
+import { AST } from "./ast.js";
 
 const { make } = AST;
 

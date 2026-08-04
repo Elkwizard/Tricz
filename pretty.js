@@ -1,6 +1,6 @@
-import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
-import IndentedPrinter from "/G:/My Drive/Desktop/Pipelang2/util/indent.mjs";
-import { AST } from "./ast.mjs";
+import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.js";
+import IndentedPrinter from "/G:/My Drive/Desktop/Pipelang2/util/indent.js";
+import { AST } from "./ast.js";
 import { styleText } from "node:util";
 
 class PrettyPrinter extends Visitor {

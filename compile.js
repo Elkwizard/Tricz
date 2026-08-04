@@ -1,17 +1,17 @@
-import { analyze } from "./analyze.mjs";
-import clean from "./clean.mjs";
-import codegen from "./codegen.mjs";
-import config from "./config.mjs";
-import { parse } from "./grammar/parse.mjs";
-import lower from "./lower.mjs";
-import lowerResolved from "./lowerResolved.mjs";
-import optimize from "./optimize.mjs";
-import optimizeZEZ from "./optimizeZEZ.mjs";
-import prettyPrint from "./pretty.mjs";
-import resolveReferences from "./resolve.mjs";
-import toIR from "./toIR.mjs";
-import typeCheck from "./typeCheck.mjs";
-import { stringify } from "./zez.mjs";
+import { analyze } from "./analyze.js";
+import clean from "./clean.js";
+import codegen from "./codegen.js";
+import config from "./config.js";
+import { parse } from "./grammar/parse.js";
+import lower from "./lower.js";
+import lowerResolved from "./lowerResolved.js";
+import optimize from "./optimize.js";
+import optimizeZEZ from "./optimizeZEZ.js";
+import prettyPrint from "./pretty.js";
+import resolveReferences from "./resolve.js";
+import toIR from "./toIR.js";
+import typeCheck from "./typeCheck.js";
+import { stringify } from "./zez.js";
 
 const logPhase = (phase, data) => {
     if (!config.log.phases?.includes(phase))

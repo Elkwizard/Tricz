@@ -1,4 +1,4 @@
-import { Statement } from "./ir.mjs";
+import { Statement } from "./ir.js";
 
 /**
  * @param {Statement[]} stmts

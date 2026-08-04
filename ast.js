@@ -1,4 +1,4 @@
-import { AST, parse } from "./grammar/parse.mjs";
+import { AST, parse } from "./grammar/parse.js";
 
 const { make } = AST;
 

@@ -1,9 +1,9 @@
-import { findAddressed } from "./analyze.mjs";
-// import { createCFG } from "./cfg.mjs";
-import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Push, Register, Return, StackOperation, Store, TAC, Unary } from "./ir.mjs";
-import { IRStateTracker, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.mjs";
-import { $ } from "./pattern.mjs";
-import { PrimitiveType } from "./types.mjs";
+import { findAddressed } from "./analyze.js";
+// import { createCFG } from "./cfg.js";
+import { Add, Address, CompareJump, Constant, Copy, Divide, Jump, Label, LabelDecl, Load, Multiply, Negate, Push, Register, Return, StackOperation, Store, TAC, Unary } from "./ir.js";
+import { IRStateTracker, SymbolicOperand, SymbolicOperator } from "./IRStateTracker.js";
+import { $ } from "./pattern.js";
+import { PrimitiveType } from "./types.js";
 
 class Optimization {
     constructor(stmts, analysis) {

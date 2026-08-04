@@ -1,4 +1,4 @@
-import { Break, Deref, Instruction, Literal, Negate, Sign, ZERO } from "./zez.mjs";
+import { Break, Deref, Instruction, Literal, Negate, Sign, ZERO } from "./zez.js";
 
 const isSimpleAdd = inst => {
     return  inst instanceof Instruction &&

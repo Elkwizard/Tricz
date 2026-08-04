@@ -1,4 +1,4 @@
-import { Branch, LabelDecl, Statement } from "./ir.mjs";
+import { Branch, LabelDecl, Statement } from "./ir.js";
 
 /**
  * @param {Statement[]} stmts

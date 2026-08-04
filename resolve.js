@@ -1,5 +1,5 @@
-import { AST } from "./ast.mjs";
-import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.mjs";
+import { AST } from "./ast.js";
+import Visitor from "/G:/My Drive/Desktop/Pipelang2/visitor.js";
 
 class Resolver extends Visitor {
     constructor() {

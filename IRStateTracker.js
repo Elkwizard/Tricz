@@ -1,6 +1,6 @@
-import config from "./config.mjs";
-import { DependencyGraph } from "./dependency.mjs";
-import { Binary, Branch, Call, Copy, LabelDecl, Load, Negate, Operand, Pop, Protect, RecCall, Store, TAC, Unary } from "./ir.mjs";
+import config from "./config.js";
+import { DependencyGraph } from "./dependency.js";
+import { Binary, Branch, Call, Copy, LabelDecl, Load, Negate, Operand, Pop, Protect, RecCall, Store, TAC, Unary } from "./ir.js";
 
 export class IRStateTracker {
     /**

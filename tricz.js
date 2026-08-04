@@ -1,8 +1,8 @@
 import util from "node:util";
-import compile from "./compile.mjs";
+import compile from "./compile.js";
 import path from "node:path";
 import fs from "node:fs";
-import resolveIncludes from "./includes.mjs";
+import resolveIncludes from "./includes.js";
 
 let {
     values: {

@@ -1,5 +1,5 @@
-import { AST } from "./ast.mjs";
-import { parse } from "./grammar/parse.mjs";
+import { AST } from "./ast.js";
+import { parse } from "./grammar/parse.js";
 
 const { make } = AST;
 

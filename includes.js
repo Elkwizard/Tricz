@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parse, AST } from "./grammar/parse.mjs";
-import clean from "./clean.mjs";
+import { parse, AST } from "./grammar/parse.js";
+import clean from "./clean.js";
 
 const { make } = AST;
 
